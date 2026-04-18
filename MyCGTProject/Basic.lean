@@ -149,24 +149,32 @@ def Hex (A : Type) : Type (u + 1) := @QPF.Fix (SCFunctor A) (QPF_SCFunctor A)
 
 noncomputable def moves_or {A : Type} : Hex A → A ⊕ {s : (Player→ Set (Hex A)) // ∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)} :=
   fun x =>@QPF.Fix.dest (SCFunctor A) (QPF_SCFunctor A) x
+
+noncomputable def AtomSC (A : Type) := {x: Hex A | Sum.isLeft (moves_or x)}
+noncomputable def CompSC (A : Type) := {x : Hex A | Sum.isRight (moves_or x)}
     
-noncomputable def mk_atom {A : Type} : A → Hex A := fun a => @QPF.Fix.mk (SCFunctor A) (QPF_SCFunctor A) (@Sum.inl A {st : Player → Set (Hex A) // ∀ p, Small (st p) ∧ (st p).Nonempty} a)
+noncomputable def mk_atom {A : Type} : A → AtomSC A := fun a => 
+@Subtype.mk (Hex A) (λ g => Sum.isLeft (moves_or g))
+(@QPF.Fix.mk (SCFunctor A) (QPF_SCFunctor A) (@Sum.inl A {st : Player → Set (Hex A) // ∀ p, Small (st p) ∧ (st p).Nonempty} a))
+ (by congr)
 
-noncomputable def mk_comp {A : Type} (s : {st : Player → Set (Hex A) // ∀ p, Small (st p) ∧ (st p).Nonempty}) : Hex A
-      := @QPF.Fix.mk (SCFunctor A) (QPF_SCFunctor A) (@Sum.inr A {st : Player → Set (Hex A) // ∀ p, Small (st p) ∧ (st p).Nonempty} s)
-
+noncomputable def mk_comp {A : Type} (s : {st : Player → Set (Hex A) // ∀ p, Small (st p) ∧ (st p).Nonempty}) : CompSC A :=
+  @Subtype.mk (Hex A) (λ g => Sum.isRight (moves_or g))
+    (@QPF.Fix.mk (SCFunctor A) (QPF_SCFunctor A) (@Sum.inr A {st : Player → Set (Hex A) // ∀ p, Small (st p) ∧ (st p).Nonempty} s))
+    (by congr)
 theorem mk_moves_or_id {A : Type} (x : Hex A) : QPF.Fix.mk (moves_or x) = x:= by 
   dsimp [moves_or]
   rw [QPF.Fix.mk_dest]
 
 
-theorem mk_atom_moves_or_id {A : Type} (x : Hex A) (ha : (moves_or x).isLeft = true) : mk_atom (Sum.getLeft (moves_or x) ha) = x := by 
+theorem mk_atom_moves_or_id {A : Type} (x : AtomSC A) : mk_atom (Sum.getLeft (moves_or x.1) x.2) = x := by 
   unfold mk_atom
-  rw [Sum.inl_getLeft]
-  rw [mk_moves_or_id]
+  congr
+  rw [Sum.inl_getLeft, mk_moves_or_id]
 
-theorem mk_comp_moves_or_id {A : Type} (x : Hex A) (hc : (moves_or x).isRight = true) : mk_comp (Sum.getRight (moves_or x) hc) = x := by 
+theorem mk_comp_moves_or_id {A : Type} (x : CompSC A) : mk_comp (Sum.getRight (moves_or x.1) x.2) = x := by 
   unfold mk_comp
+  congr
   rw [Sum.inr_getRight, mk_moves_or_id]
 
 
@@ -185,8 +193,6 @@ noncomputable def is_atomic {A : Type} : (Hex A) → Bool := λ g => Sum.isLeft 
 noncomputable def is_composite {A : Type} : ( Hex A) → Bool := λ g => Sum.isRight (moves_or g)
 
 
-noncomputable def AtomSC (A : Type) := {x: Hex A | Sum.isLeft (moves_or x)}
-noncomputable def CompSC (A : Type) := {x : Hex A | Sum.isRight (moves_or x)}
 
 namespace Hex
 export Player (left right)
@@ -198,48 +204,33 @@ noncomputable section
 
 
 /--
-Type class for the `ofSetsSC` operation.
+definition  of the `ofSetsSC` operation.
 Used to implement the `!{st}` and `!{s | t}` syntax.
--/
-class OfSetsSC (α : Type (u + 1)) (Valid : outParam ((Player → Set α) → Prop)) where
-  /-- Construct a combinatorial Set Coloring game from its left and right sets. -/
-  ofSetsSC (st : Player → Set α) (h : Valid st) [Small.{u} (st left)] [Nonempty (st left)] [Small.{u} (st right)] [Nonempty (st right)] : α
-export OfSetsSC (ofSetsSC)
+Here we construct a combinatorial Set Coloring game from its left and right sets. -/
+def ofSetsSC {A : Type} (st : Player → Set (Hex A)) [Small.{u} (st left)] [Nonempty (st left)] [Small.{u} (st right)] [Nonempty (st right)] : CompSC A := 
+    @Subtype.mk (Hex A) (λ x => Sum.isRight (moves_or x)) (@mk_comp A ⟨st , 
+      λ p => match p with
+        |left => ⟨by assumption,(have h := Iff.mp (Set.nonempty_coe_sort); by apply h; assumption)⟩
+        |right => ⟨by assumption,(have h := Iff.mp (Set.nonempty_coe_sort); by apply h; assumption)⟩⟩)
+    (by congr)
+    
 
-@[inherit_doc OfSetsSC.ofSetsSC]
-macro "!{" st:term "}'" h:term:max : term => `(OfSetsSC.ofSetsSC $st $h)
+@[inherit_doc Hex.ofSetsSC]
+macro "!{" st:term:max "}"  : term => `(Hex.ofSetsSC $st)
 
-@[inherit_doc OfSetsSC.ofSetsSC]
-macro "!{" s:term " | " t:term "}'" h:term:max : term => `(!{Player.cases $s $t}'$h)
+@[inherit_doc Hex.ofSetsSC]
+macro "!{" s:term " | " t:term "}" : term => `(!{(Player.cases $s $t)})
 
-/-- A tactic which attempts to automatically solve goals which appear on `OfSetsSC`. -/
-macro "of_setsSC_tactic" : tactic =>
-  `(tactic| first
-    | done
-    | trivial
-    | assumption
-    | aesop
-    | fail "failed to prove sets are valid, try to use `!{st}'h` notation instead, \
-where `h` is a proof that sets are valid"
-   )
 
-@[inherit_doc OfSetsSC.ofSetsSC]
-macro:max "!{" st:term "}" : term => `(!{$st}'(by of_setsSC_tactic))
-
-@[inherit_doc OfSetsSC.ofSetsSC]
-macro:max "!{" s:term " | " t:term "}" : term => `(!{$s | $t}'(by of_setsSC_tactic))
-
-recommended_spelling "ofSetsSC" for "!{st}'h" in [ofSetsSC, «term!{_}'_»]
-recommended_spelling "ofSetsSC" for "!{s | t}'h" in [ofSetsSC, «term!{_|_}'_»]
-recommended_spelling "ofSetsSC" for "!{st}" in [ofSetsSC, «term!{_}»]
-recommended_spelling "ofSetsSC" for "!{s | t}" in [ofSetsSC, «term!{_|_}»]
+recommended_spelling "ofSetsSC" for "!{st}" in [Hex.ofSetsSC, «term!{_}»]
+recommended_spelling "ofSetsSC" for "!{s | t}" in [Hex.ofSetsSC, «term!{_|_}»]
 
 open Lean PrettyPrinter Delaborator SubExpr in
 /-- Delaborates `ofSetsSC (Player.cases s t)` to `!{s | t}` and `ofSetsSC st` to `!{st}`. -/
-@[app_delab OfSetsSC.ofSetsSC]
+@[app_delab Hex.ofSetsSC]
 meta def delabOfSetsSC : Delab := do
   let e ← getExpr
-  guard <| e.isAppOfArity' ``OfSetsSC.ofSetsSC 7
+  guard <| e.isAppOfArity' ``Hex.ofSetsSC 7
   withNaryArg 3 do
     let e ← getExpr
     if e.isAppOfArity' ``Player.cases 3 then
@@ -250,26 +241,19 @@ meta def delabOfSetsSC : Delab := do
       let st ← delab
       `(!{$st})
  
-theorem ofSetsSC_eq_ofSetsSC_cases {α} {Valid : (Player → Set α) → Prop} [OfSetsSC α Valid]
-    (st : Player → Set α) (h : Valid st) [Small (st left)] [Nonempty (st left)] [Small (st right)] [Nonempty (st right)] :
-    !{st} = !{st left | st right}'(by convert h; aesop) := by
-  congr; ext1 p; cases p <;> rfl
+theorem ofSetsSC_eq_ofSetsSC_cases {A : Type} (st : Player → Set (Hex.{u} A)) [Small.{u} (st left)] [Nonempty (st left)] [Small.{u} (st right)] [Nonempty (st right)] :
+    !{st} = !{(st left) | (st right)} := by
+    congr; ext1 p; cases p <;> rfl
 
 
 
 
-instance (A : Type) : OfSetsSC (Hex A) (fun _ ↦ True) where
-  ofSetsSC st _ := 
-    mk_comp ⟨st , 
-      λ p => match p with
-        |left => ⟨by assumption,(have h := Iff.mp (Set.nonempty_coe_sort); by apply h; assumption)⟩
-        |right => ⟨by assumption,(have h := Iff.mp (Set.nonempty_coe_sort); by apply h; assumption)⟩⟩
 
-theorem ofSetsSCmap_comp {A : Type} (st : Player → Set (Hex A)) [Small.{u} (st left)] [Nonempty (st left)] [Small.{u} (st right)] [Nonempty (st right)] : (moves_or !{st}).isRight = true := by 
+theorem ofSetsSCmap_comp {A : Type} (st : Player → Set (Hex A)) [Small.{u} (st left)] [Nonempty (st left)] [Small.{u} (st right)] [Nonempty (st right)] : (moves_or !{st}.val).isRight = true := by 
   dsimp [ofSetsSC]
   rw [ moves_or_mk_comp_id, Sum.isRight_inr]
 
-theorem ofSetsSCpair_comp {A : Type} (s t : Set (Hex A)) [Small.{u} s] [Nonempty s] [Small.{u} t] [Nonempty t] : Sum.isRight (moves_or !{s|t}):= by
+theorem ofSetsSCpair_comp {A : Type} (s t : Set (Hex A)) [Small.{u} s] [Nonempty s] [Small.{u} t] [Nonempty t] : Sum.isRight (moves_or !{s|t}.val):= by
   dsimp [ofSetsSC]
   rw [ moves_or_mk_comp_id, Sum.isRight_inr]
 
@@ -314,21 +298,22 @@ instance {A : Type} (p : Player) (x : CompSC.{u} A) : Nonempty (moves x p) :=
 
 @[simp]
 theorem moves_ofSets {A : Type} (st : Player → Set (Hex A)) (p : Player) [Small.{u} (st left)] [Nonempty (st left)] [Small.{u} (st right)] [Nonempty (st right)] :
-   moves ⟨!{st},ofSetsSCmap_comp st⟩ p = st p := by 
+   moves !{st} p = st p := by 
   dsimp [ofSetsSC, moves]  
   simp [moves_or_mk_comp_id]
 
 
 @[simp]
-theorem ofSets_moves {A : Type} (x : CompSC A) : !{moves x}  = x := by
+theorem ofSets_moves {A : Type} (x : CompSC A) : !{(moves x)}  = x := by
   dsimp [ ofSetsSC]
   unfold moves
-  rw [Subtype.eta, mk_comp_moves_or_id]
+  rw [Subtype.eta] 
+  rw [mk_comp_moves_or_id]
 
-theorem leftMoves_ofSets (s t : Set (Hex A)) [Small.{u} s] [Nonempty s] [Small.{u} t] [Nonempty t] : ⟨!{s|t} , ofSetsSCpair_comp s t⟩ᴸ = s :=  
+theorem leftMoves_ofSets (s t : Set (Hex A)) [Small.{u} s] [Nonempty s] [Small.{u} t] [Nonempty t] : !{s|t}ᴸ = s :=  
 moves_ofSets ..
 
-theorem rightMoves_ofSets (s t : Set (Hex A)) [Small.{u} s] [Nonempty s] [Small.{u} t] [Nonempty t] : ⟨!{s|t},ofSetsSCpair_comp s t⟩ᴿ = t :=  
+theorem rightMoves_ofSets (s t : Set (Hex A)) [Small.{u} s] [Nonempty s] [Small.{u} t] [Nonempty t] : !{s|t}ᴿ = t :=  
 moves_ofSets ..
 
 @[simp]
@@ -348,17 +333,18 @@ theorem ext {A : Type} {x y : CompSC A} (h : ∀ p, moves x p = moves y p) : x =
 theorem ofSets_inj' {A : Type} {st₁ st₂ : Player → Set (Hex A)}
     [Small (st₁ left)] [Small (st₁ right)] [Small (st₂ left)] [Small (st₂ right)] [Nonempty (st₁ left)] [Nonempty (st₁ right)] [Nonempty (st₂ left)] [Nonempty (st₂ right)] :
     !{st₁} =!{st₂}↔ st₁ = st₂ := by
-    let g1: CompSC A := ⟨!{st₁},(ofSetsSCmap_comp st₁)⟩
-    have hg1 : g1 = ⟨!{st₁},(ofSetsSCmap_comp st₁)⟩ := by rfl
-    let g2 : CompSC A := ⟨!{st₂}, (ofSetsSCmap_comp st₂)⟩
-    have hg2 : g2 = ⟨!{st₂},(ofSetsSCmap_comp st₂)⟩ := by rfl
-    have h: g1=g2 ↔  !{st₁} = !{st₂} := by 
-      rw [hg1, hg2]
-      rw [Subtype.mk_eq_mk];
-    rw [symm h]
+    simp_rw [Hex.ext_iff]
+    constructor
+    · intro h1
+      funext p  
+      have h2 := h1 p
+      repeat rewrite [moves_ofSets] at h2
+      exact h2
+    · intro h3 p
+      repeat rewrite [moves_ofSets]
+      rw [funext_iff] at h3
+      exact (h3 p)
     
-    simp_rw [Hex.ext_iff, hg1,hg2]
-    rw [moves_ofSets st₁]
 end
 end Hex
 
