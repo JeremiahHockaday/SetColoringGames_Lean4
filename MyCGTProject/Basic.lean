@@ -246,35 +246,15 @@ theorem ofSetsSC_eq_ofSetsSC_cases {A : Type} (st : Player → Set (Hex.{u} A)) 
     congr; ext1 p; cases p <;> rfl
 
 
-
-
-
-theorem ofSetsSCmap_comp {A : Type} (st : Player → Set (Hex A)) [Small.{u} (st left)] [Nonempty (st left)] [Small.{u} (st right)] [Nonempty (st right)] : (moves_or !{st}.val).isRight = true := by 
-  dsimp [ofSetsSC]
-  rw [ moves_or_mk_comp_id, Sum.isRight_inr]
-
-theorem ofSetsSCpair_comp {A : Type} (s t : Set (Hex A)) [Small.{u} s] [Nonempty s] [Small.{u} t] [Nonempty t] : Sum.isRight (moves_or !{s|t}.val):= by
-  dsimp [ofSetsSC]
-  rw [ moves_or_mk_comp_id, Sum.isRight_inr]
-
-    -- (λ p => match p with 
-    --   |left => by assumption  
-    --   |right => by assumption
-    -- )
-    -- (λ p => match p with 
-    --   | left => (have h := Iff.mp (Set.nonempty_coe_sort); by apply h; assumption)
-    --   | right => (have h := Iff.mp (Set.nonempty_coe_sort); by apply h; assumption)
-    -- )
-
 /-- The set of moves of a composite game. -/
 def moves {A : Type} (x : CompSC A) (p : Player) : Set (Hex A) :=  
   (@Sum.getRight A {st : Player → Set (Hex A) // ∀ p, Small (st p) ∧ (st p).Nonempty} (moves_or x.1) x.2).1 p
 
 /-- The set of left moves of a composite game. -/
-notation x "ᴸ" => moves x left 
+notation x:max "ᴸ" => moves x left 
 
 /-- The set of right moves of a composite game. -/
-notation x "ᴿ" => moves x right 
+notation x:max "ᴿ" => moves x right 
 
 instance {A : Type} (p : Player) (x : CompSC.{u} A) : Small.{u} (moves x p) := 
   let g:= Sum.getRight (moves_or x.1) x.2; 
@@ -323,8 +303,7 @@ theorem ofSets_leftMoves_rightMoves (x : CompSC A) : !{xᴸ | xᴿ} = x :=  by
   cases p <;> dsimp [Player.cases]
 
 @[ext]
-theorem ext {A : Type} {x y : CompSC A} (h : ∀ p, moves x p = moves y p) : x = y :=  by
-    ext
+theorem ext {A : Type} {x y : CompSC A} (h : ∀ p, moves x p = moves y p) : x = y :=  by 
     rw [← ofSets_moves x , ← ofSets_moves y ]
     simp_rw [funext h] 
     
@@ -333,18 +312,21 @@ theorem ext {A : Type} {x y : CompSC A} (h : ∀ p, moves x p = moves y p) : x =
 theorem ofSets_inj' {A : Type} {st₁ st₂ : Player → Set (Hex A)}
     [Small (st₁ left)] [Small (st₁ right)] [Small (st₂ left)] [Small (st₂ right)] [Nonempty (st₁ left)] [Nonempty (st₁ right)] [Nonempty (st₂ left)] [Nonempty (st₂ right)] :
     !{st₁} =!{st₂}↔ st₁ = st₂ := by
-    simp_rw [Hex.ext_iff]
-    constructor
-    · intro h1
-      funext p  
-      have h2 := h1 p
-      repeat rewrite [moves_ofSets] at h2
-      exact h2
-    · intro h3 p
-      repeat rewrite [moves_ofSets]
-      rw [funext_iff] at h3
-      exact (h3 p)
-    
+    simp_rw [Hex.ext_iff, moves_ofSets, funext_iff]
+
+theorem ofSets_inj {A : Type} {s₁ s₂ t₁ t₂ : Set (Hex A)} [Small s₁] [Small s₂] [Small t₁] [Small t₂] [Nonempty s₁] [Nonempty s₂] [Nonempty t₁] [Nonempty t₂] :
+    !{s₁ | t₁} = !{s₂ | t₂} ↔ s₁ = s₂ ∧ t₁ = t₂ := by
+  simp
+
+/-- option x y : x is in the left or right set of the (composite) game y. -/
+def option {A : Type} : (Hex A) → (CompSC A) → Prop := fun x y => x ∈ ⋃ p, (moves y) p
+
+/-- A proper subposition of a (composite) game y is any game reachable by a nonempty sequence of left and right moves. -/
+inductive Subposition {A : Type} : (Hex A) → (CompSC A) -> Prop where
+| single {a:Hex A} {b:CompSC A} : option a b → Subposition a b
+| tail {a:Hex A} {b c : CompSC A}: Subposition a b → option (b.val) c → Subposition a c
+
+
 end
 end Hex
 
