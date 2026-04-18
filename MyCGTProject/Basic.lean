@@ -1,0 +1,375 @@
+import Mathlib.Data.Fintype.Defs
+import Mathlib.Logic.Small.Set
+import Mathlib.Data.TypeVec
+import Mathlib.Control.Functor.Multivariate
+import Mathlib.Data.QPF.Univariate.Basic
+import Mathlib.Data.Set.Image
+import Mathlib.Data.Set.Basic
+import MyCGTProject.Player
+import Mathlib.Data.Finset.Basic
+
+set_option linter.style.lambdaSyntax false
+set_option linter.style.longLine false
+set_option linter.unnecessarySeqFocus false
+--set_option trace.Meta.synthInstance true
+
+universe u v
+
+
+inductive listGame (α : Type u) where
+| atom : α → listGame α 
+| game : (List (listGame α)) → (List (listGame α))→ listGame α
+
+-- inductive Player where
+-- | left: Player
+-- | right: Player
+
+-- The following definition does not work, as it is non-positive (and lean tells us this). 
+-- inductive badSetGame (α : Type u) where
+-- | atom : α → badSetGame α 
+-- | game : (Set (badSetGame α)) → (Set (badSetGame α))→ badSetGame α
+
+
+
+-- now defining the QPF!!!
+
+
+-- Dicot Functor
+def DicotFunctor (α : Type (u + 1)) : Type (u+1):= 
+{s : (Player→ Set α) | ∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)}
+
+def DicotFunctor.map : {α : Type (u + 1)} → {β : Type (u+1)} → 
+(α → β) → DicotFunctor α → DicotFunctor β := 
+fun {α} {β} f s => ⟨(f '' s.1 ·), fun p =>  And.intro 
+(have h1:=(s.property p).left; by infer_instance) 
+(have h2 := (s.property p).right;  @Set.Nonempty.image α β (f) (s.1 p) h2 )⟩ 
+
+instance : Functor DicotFunctor where
+map:= DicotFunctor.map
+
+def SCFunctor (A : Type) (α : Type (u + 1)) : Type ((u + 1)) :=
+ A ⊕ (DicotFunctor α)
+
+instance Funct_SCFunctor : Functor (SCFunctor A) where 
+map f := Sum.map (@id A) (DicotFunctor.map f)  
+
+theorem map_def {A α β} (f : α → β) (s : SCFunctor A α) :
+    f <$> s = Sum.map (@id A) (DicotFunctor.map f) s:=
+  rfl
+
+
+-----------------------------------------------------------------------
+
+
+def SCFunctor.P (A : Type) : PFunctor.{u + 1, u + 1} where
+  A := A ⊕ (Σ (S : Player → Type u), S .left × S .right)
+  B := fun
+    | .inr ⟨S, _⟩ => ULift.{u + 1} (S .left ⊕ S .right)
+    | .inl _ => ULift.{u + 1} Empty
+
+def SCFunctor.absF {A : Type} {α : Type (u + 1)} :
+    (SCFunctor.P.{u} A).Obj α → SCFunctor.{u} A α := fun ⟨a, f⟩ =>
+  match a with
+  | .inr ⟨S, sL, sR⟩ =>
+    Sum.inr ⟨fun p => 
+      match p with
+      | .left => Set.range (f∘ULift.up∘Sum.inl)
+      | .right => Set.range (f∘ULift.up∘Sum.inr),
+      fun p => by
+        constructor
+        · match p with
+        | .left => infer_instance | .right => infer_instance
+        · match p with
+        | .left => exact ⟨_, ⟨sL, rfl⟩⟩ | .right => exact ⟨_, ⟨sR, rfl⟩⟩
+    ⟩
+  | .inl a => Sum.inl a
+
+-- def SCFunctor.qpfAbs {A : Type} {α : Type (u + 1)} :
+--     (SCFunctor.P.{u} A).Obj α → SCFunctor.{u} A α :=
+--   fun ⟨shape, f⟩ => match shape with
+--     | Sum.inl ⟨S, hne⟩ => Sum.inl ⟨fun p => Set.range (fun s : S p => f ⟨p, s⟩),
+--         fun p => ⟨@small_range.{u} (S p) α (fun s => f ⟨p, s⟩) inferInstance,
+--                   ⟨f ⟨p, (hne p).some⟩, Set.mem_range_self _⟩⟩⟩
+--     | Sum.inr a => Sum.inr a
+
+noncomputable def SCFunctor.reprF {A : Type} {α : Type (u + 1)} :
+    SCFunctor A α → (SCFunctor.P A).Obj α := fun
+  | .inl a => ⟨.inl a, fun e => (e.down).elim⟩
+  | .inr ⟨s, hs⟩ =>
+    have : Small.{u} ↥(s .left) := (hs .left).1
+    have : Small.{u} ↥(s .right) := (hs .right).1
+    have hNL := (hs .left).2
+    have hNR := (hs .right).2
+    let eL := equivShrink.{u} (s .left) 
+    let eR := equivShrink.{u} (s .right)
+    ⟨.inr ⟨fun p => match p with
+      | .left => Shrink.{u} (s .left) | .right => Shrink.{u} (s .right),
+      eL ⟨hNL.some, hNL.some_mem⟩, eR ⟨hNR.some, hNR.some_mem⟩⟩,
+    fun ⟨lr⟩ => match lr with
+      | .inl l => (eL.symm l).val | .inr r => (eR.symm r).val
+    ⟩
+
+theorem SCFunctor.abs_repr_eq {A : Type} {α : Type (u + 1)}
+    (x : SCFunctor.{u} A α) :
+    SCFunctor.absF (SCFunctor.reprF x) = x := by
+  cases x <;> simp only [absF, reprF]; 
+  apply congr_arg Sum.inr ( Subtype.ext _ );
+  ext p x; cases p <;> simp only [ Set.mem_range ] ;
+  · constructor;
+    · aesop;
+    · exact fun hx => ⟨ _, Subtype.ext_iff.mp ( Equiv.apply_symm_apply _ ⟨ x, hx ⟩ ) ⟩;
+  · constructor;
+    · aesop;
+    · exact fun hx => ⟨ _, Subtype.ext_iff.mp ( Equiv.apply_symm_apply _ ⟨ x, hx ⟩ ) ⟩
+
+theorem SCFunctor.abs_map_eq {A : Type} [Small.{u + 1} A] {α β : Type (u + 1)}
+    (f : α → β) (p : (SCFunctor.P.{u} A).Obj α) :
+    SCFunctor.absF ((SCFunctor.P.{u} A).map f p) =
+    @Functor.map _ (Funct_SCFunctor ) _ _ f (SCFunctor.absF p) := by
+  rcases p with ⟨ a, f ⟩;
+  unfold absF;
+  rcases a with ( a | ⟨ S, sL, sR ⟩ );
+  · rfl
+  · simp only [ PFunctor.map ];
+    congr;
+    ext p; cases p <;> simp [ Set.range ] ;
+
+
+noncomputable instance QPF_SCFunctor (A : Type) :
+    QPF (SCFunctor A) where
+  toFunctor := Funct_SCFunctor 
+  P := SCFunctor.P A
+  abs := SCFunctor.absF
+  repr := SCFunctor.reprF
+  abs_repr := SCFunctor.abs_repr_eq
+  abs_map := SCFunctor.abs_map_eq
+
+
+def Hex (A : Type) : Type (u + 1) := @QPF.Fix (SCFunctor A) (QPF_SCFunctor A)
+
+noncomputable def moves_or {A : Type} : Hex A → A ⊕ {s : (Player→ Set (Hex A)) // ∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)} :=
+  fun x =>@QPF.Fix.dest (SCFunctor A) (QPF_SCFunctor A) x
+    
+noncomputable def mk_atom {A : Type} : A → Hex A := fun a => @QPF.Fix.mk (SCFunctor A) (QPF_SCFunctor A) (@Sum.inl A {st : Player → Set (Hex A) // ∀ p, Small (st p) ∧ (st p).Nonempty} a)
+
+noncomputable def mk_comp {A : Type} (s : {st : Player → Set (Hex A) // ∀ p, Small (st p) ∧ (st p).Nonempty}) : Hex A
+      := @QPF.Fix.mk (SCFunctor A) (QPF_SCFunctor A) (@Sum.inr A {st : Player → Set (Hex A) // ∀ p, Small (st p) ∧ (st p).Nonempty} s)
+
+theorem mk_moves_or_id {A : Type} (x : Hex A) : QPF.Fix.mk (moves_or x) = x:= by 
+  dsimp [moves_or]
+  rw [QPF.Fix.mk_dest]
+
+
+theorem mk_atom_moves_or_id {A : Type} (x : Hex A) (ha : (moves_or x).isLeft = true) : mk_atom (Sum.getLeft (moves_or x) ha) = x := by 
+  unfold mk_atom
+  rw [Sum.inl_getLeft]
+  rw [mk_moves_or_id]
+
+theorem mk_comp_moves_or_id {A : Type} (x : Hex A) (hc : (moves_or x).isRight = true) : mk_comp (Sum.getRight (moves_or x) hc) = x := by 
+  unfold mk_comp
+  rw [Sum.inr_getRight, mk_moves_or_id]
+
+
+theorem moves_or_mk_comp_id {A : Type} (st : Player → Set (Hex A)) (h : ∀ p, Small (st p) ∧ (st p).Nonempty) : moves_or (mk_comp ⟨st, h⟩) = Sum.inr ⟨st, h⟩ := by 
+  dsimp [moves_or,mk_comp]
+  rw [QPF.Fix.dest_mk] 
+
+
+theorem moves_or_mk_atom_id {A : Type} (x : A) : moves_or (mk_atom x) = Sum.inl x
+:= by 
+  dsimp [moves_or,mk_atom]
+  rw [QPF.Fix.dest_mk] 
+
+-- Special Games
+noncomputable def is_atomic {A : Type} : (Hex A) → Bool := λ g => Sum.isLeft (moves_or g)
+noncomputable def is_composite {A : Type} : ( Hex A) → Bool := λ g => Sum.isRight (moves_or g)
+
+
+noncomputable def AtomSC (A : Type) := {x: Hex A | Sum.isLeft (moves_or x)}
+noncomputable def CompSC (A : Type) := {x : Hex A | Sum.isRight (moves_or x)}
+
+namespace Hex
+export Player (left right)
+noncomputable section
+
+-----------------------------------------------------------------------------------
+
+/-! ### OfSetsSC -/
+
+
+/--
+Type class for the `ofSetsSC` operation.
+Used to implement the `!{st}` and `!{s | t}` syntax.
+-/
+class OfSetsSC (α : Type (u + 1)) (Valid : outParam ((Player → Set α) → Prop)) where
+  /-- Construct a combinatorial Set Coloring game from its left and right sets. -/
+  ofSetsSC (st : Player → Set α) (h : Valid st) [Small.{u} (st left)] [Nonempty (st left)] [Small.{u} (st right)] [Nonempty (st right)] : α
+export OfSetsSC (ofSetsSC)
+
+@[inherit_doc OfSetsSC.ofSetsSC]
+macro "!{" st:term "}'" h:term:max : term => `(OfSetsSC.ofSetsSC $st $h)
+
+@[inherit_doc OfSetsSC.ofSetsSC]
+macro "!{" s:term " | " t:term "}'" h:term:max : term => `(!{Player.cases $s $t}'$h)
+
+/-- A tactic which attempts to automatically solve goals which appear on `OfSetsSC`. -/
+macro "of_setsSC_tactic" : tactic =>
+  `(tactic| first
+    | done
+    | trivial
+    | assumption
+    | aesop
+    | fail "failed to prove sets are valid, try to use `!{st}'h` notation instead, \
+where `h` is a proof that sets are valid"
+   )
+
+@[inherit_doc OfSetsSC.ofSetsSC]
+macro:max "!{" st:term "}" : term => `(!{$st}'(by of_setsSC_tactic))
+
+@[inherit_doc OfSetsSC.ofSetsSC]
+macro:max "!{" s:term " | " t:term "}" : term => `(!{$s | $t}'(by of_setsSC_tactic))
+
+recommended_spelling "ofSetsSC" for "!{st}'h" in [ofSetsSC, «term!{_}'_»]
+recommended_spelling "ofSetsSC" for "!{s | t}'h" in [ofSetsSC, «term!{_|_}'_»]
+recommended_spelling "ofSetsSC" for "!{st}" in [ofSetsSC, «term!{_}»]
+recommended_spelling "ofSetsSC" for "!{s | t}" in [ofSetsSC, «term!{_|_}»]
+
+open Lean PrettyPrinter Delaborator SubExpr in
+/-- Delaborates `ofSetsSC (Player.cases s t)` to `!{s | t}` and `ofSetsSC st` to `!{st}`. -/
+@[app_delab OfSetsSC.ofSetsSC]
+meta def delabOfSetsSC : Delab := do
+  let e ← getExpr
+  guard <| e.isAppOfArity' ``OfSetsSC.ofSetsSC 7
+  withNaryArg 3 do
+    let e ← getExpr
+    if e.isAppOfArity' ``Player.cases 3 then
+      let s ← withNaryArg 1 delab
+      let t ← withNaryArg 2 delab
+      `(!{$s | $t})
+    else
+      let st ← delab
+      `(!{$st})
+ 
+theorem ofSetsSC_eq_ofSetsSC_cases {α} {Valid : (Player → Set α) → Prop} [OfSetsSC α Valid]
+    (st : Player → Set α) (h : Valid st) [Small (st left)] [Nonempty (st left)] [Small (st right)] [Nonempty (st right)] :
+    !{st} = !{st left | st right}'(by convert h; aesop) := by
+  congr; ext1 p; cases p <;> rfl
+
+
+
+
+instance (A : Type) : OfSetsSC (Hex A) (fun _ ↦ True) where
+  ofSetsSC st _ := 
+    mk_comp ⟨st , 
+      λ p => match p with
+        |left => ⟨by assumption,(have h := Iff.mp (Set.nonempty_coe_sort); by apply h; assumption)⟩
+        |right => ⟨by assumption,(have h := Iff.mp (Set.nonempty_coe_sort); by apply h; assumption)⟩⟩
+
+theorem ofSetsSCmap_comp {A : Type} (st : Player → Set (Hex A)) [Small.{u} (st left)] [Nonempty (st left)] [Small.{u} (st right)] [Nonempty (st right)] : (moves_or !{st}).isRight = true := by 
+  dsimp [ofSetsSC]
+  rw [ moves_or_mk_comp_id, Sum.isRight_inr]
+
+theorem ofSetsSCpair_comp {A : Type} (s t : Set (Hex A)) [Small.{u} s] [Nonempty s] [Small.{u} t] [Nonempty t] : Sum.isRight (moves_or !{s|t}):= by
+  dsimp [ofSetsSC]
+  rw [ moves_or_mk_comp_id, Sum.isRight_inr]
+
+    -- (λ p => match p with 
+    --   |left => by assumption  
+    --   |right => by assumption
+    -- )
+    -- (λ p => match p with 
+    --   | left => (have h := Iff.mp (Set.nonempty_coe_sort); by apply h; assumption)
+    --   | right => (have h := Iff.mp (Set.nonempty_coe_sort); by apply h; assumption)
+    -- )
+
+/-- The set of moves of a composite game. -/
+def moves {A : Type} (x : CompSC A) (p : Player) : Set (Hex A) :=  
+  (@Sum.getRight A {st : Player → Set (Hex A) // ∀ p, Small (st p) ∧ (st p).Nonempty} (moves_or x.1) x.2).1 p
+
+/-- The set of left moves of a composite game. -/
+notation x "ᴸ" => moves x left 
+
+/-- The set of right moves of a composite game. -/
+notation x "ᴿ" => moves x right 
+
+instance {A : Type} (p : Player) (x : CompSC.{u} A) : Small.{u} (moves x p) := 
+  let g:= Sum.getRight (moves_or x.1) x.2; 
+  have he : g.1 p = moves x p := by rfl;
+  let hg := And.left (g.2 p);
+  by 
+  rw [he] at hg 
+  exact hg;
+
+instance {A : Type} (p : Player) (x : CompSC.{u} A) : Nonempty (moves x p) := 
+  let g:= Sum.getRight (moves_or x.1) x.2; 
+  have he : g.1 p = moves x p := by rfl;
+  let hg := And.right (g.2 p);
+  have h := Iff.mpr (Set.nonempty_coe_sort);
+  by 
+  rw [he] at hg 
+  apply h at hg
+  exact hg;
+
+
+
+@[simp]
+theorem moves_ofSets {A : Type} (st : Player → Set (Hex A)) (p : Player) [Small.{u} (st left)] [Nonempty (st left)] [Small.{u} (st right)] [Nonempty (st right)] :
+   moves ⟨!{st},ofSetsSCmap_comp st⟩ p = st p := by 
+  dsimp [ofSetsSC, moves]  
+  simp [moves_or_mk_comp_id]
+
+
+@[simp]
+theorem ofSets_moves {A : Type} (x : CompSC A) : !{moves x}  = x := by
+  dsimp [ ofSetsSC]
+  unfold moves
+  rw [Subtype.eta, mk_comp_moves_or_id]
+
+theorem leftMoves_ofSets (s t : Set (Hex A)) [Small.{u} s] [Nonempty s] [Small.{u} t] [Nonempty t] : ⟨!{s|t} , ofSetsSCpair_comp s t⟩ᴸ = s :=  
+moves_ofSets ..
+
+theorem rightMoves_ofSets (s t : Set (Hex A)) [Small.{u} s] [Nonempty s] [Small.{u} t] [Nonempty t] : ⟨!{s|t},ofSetsSCpair_comp s t⟩ᴿ = t :=  
+moves_ofSets ..
+
+@[simp]
+theorem ofSets_leftMoves_rightMoves (x : CompSC A) : !{xᴸ | xᴿ} = x :=  by 
+  convert (ofSets_moves x) with p
+  funext p
+  cases p <;> dsimp [Player.cases]
+
+@[ext]
+theorem ext {A : Type} {x y : CompSC A} (h : ∀ p, moves x p = moves y p) : x = y :=  by
+    ext
+    rw [← ofSets_moves x , ← ofSets_moves y ]
+    simp_rw [funext h] 
+    
+       
+@[simp]
+theorem ofSets_inj' {A : Type} {st₁ st₂ : Player → Set (Hex A)}
+    [Small (st₁ left)] [Small (st₁ right)] [Small (st₂ left)] [Small (st₂ right)] [Nonempty (st₁ left)] [Nonempty (st₁ right)] [Nonempty (st₂ left)] [Nonempty (st₂ right)] :
+    !{st₁} =!{st₂}↔ st₁ = st₂ := by
+    let g1: CompSC A := ⟨!{st₁},(ofSetsSCmap_comp st₁)⟩
+    have hg1 : g1 = ⟨!{st₁},(ofSetsSCmap_comp st₁)⟩ := by rfl
+    let g2 : CompSC A := ⟨!{st₂}, (ofSetsSCmap_comp st₂)⟩
+    have hg2 : g2 = ⟨!{st₂},(ofSetsSCmap_comp st₂)⟩ := by rfl
+    have h: g1=g2 ↔  !{st₁} = !{st₂} := by 
+      rw [hg1, hg2]
+      rw [Subtype.mk_eq_mk];
+    rw [symm h]
+    
+    simp_rw [Hex.ext_iff, hg1,hg2]
+    rw [moves_ofSets st₁]
+end
+end Hex
+
+-- SCFunctor ()
+
+
+
+-- def D := Unit
+-- def z:Unit := Unit.unit
+
+
+
+
+
