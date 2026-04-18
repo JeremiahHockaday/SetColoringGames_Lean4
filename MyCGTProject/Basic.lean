@@ -6,6 +6,7 @@ import Mathlib.Data.QPF.Univariate.Basic
 import Mathlib.Data.Set.Image
 import Mathlib.Data.Set.Basic
 import MyCGTProject.Player
+import MyCGTProject.Small
 import Mathlib.Data.Finset.Basic
 
 set_option linter.style.lambdaSyntax false
@@ -256,7 +257,7 @@ notation x:max "ᴸ" => moves x left
 /-- The set of right moves of a composite game. -/
 notation x:max "ᴿ" => moves x right 
 
-instance {A : Type} (p : Player) (x : CompSC.{u} A) : Small.{u} (moves x p) := 
+instance small_moves {A : Type} (p : Player) (x : CompSC.{u} A) : Small.{u} (moves x p) := 
   let g:= Sum.getRight (moves_or x.1) x.2; 
   have he : g.1 p = moves x p := by rfl;
   let hg := And.left (g.2 p);
@@ -264,7 +265,7 @@ instance {A : Type} (p : Player) (x : CompSC.{u} A) : Small.{u} (moves x p) :=
   rw [he] at hg 
   exact hg;
 
-instance {A : Type} (p : Player) (x : CompSC.{u} A) : Nonempty (moves x p) := 
+instance nonempty_moves {A : Type} (p : Player) (x : CompSC.{u} A) : Nonempty (moves x p) := 
   let g:= Sum.getRight (moves_or x.1) x.2; 
   have he : g.1 p = moves x p := by rfl;
   let hg := And.right (g.2 p);
@@ -320,26 +321,66 @@ theorem ofSets_inj {A : Type} {s₁ s₂ t₁ t₂ : Set (Hex A)} [Small s₁] [
 
 
 
+/-- Because of the diffference between composite and atomic games, we must define subpositions very carefully. -/
+def comp.Subposition {A : Type} : (CompSC A) → (CompSC A) → Prop := Relation.TransGen λ x y => x.val ∈ ⋃ p, (moves y) p
+
+@[aesop unsafe apply 50%]
+theorem comp.Subposition.of_mem_moves {A : Type} {p} {x y : CompSC A} (h : x.val ∈ moves y p) : comp.Subposition x y :=
+  Relation.TransGen.single (Set.mem_iUnion_of_mem p h)
+
+theorem comp.Subposition.trans {A : Type} {x y z : CompSC A} (h₁ : comp.Subposition x y) (h₂ : comp.Subposition y z) :
+    comp.Subposition x z :=
+  Relation.TransGen.trans h₁ h₂
+
+instance {A : Type} : IsTrans (CompSC A) comp.Subposition := inferInstanceAs (IsTrans _ (Relation.TransGen _))
+
+/-- The set of composite options of a given composite game is small. -/
+instance comp.small_setOf_options {A : Type} : 
+∀ x : (CompSC.{u} A),  Small.{u , u + 1} {y : CompSC A | y.val ∈ ⋃ p, (moves x) p} := 
+  λ x =>
+  have h1 : Small.{u} (⋃ p, (moves x) p) := by infer_instance;
+  let f : {y : CompSC A | y.val ∈ ⋃ p, (moves x) p}→{y:Hex A | y ∈ ⋃ p, (moves x) p ∧ Sum.isRight (moves_or y)} := λ x => ⟨x.1.1,⟨x.2,x.1.2⟩⟩;
+  let g : {y:Hex A | y ∈ ⋃ p, (moves x) p ∧ Sum.isRight (moves_or y)}→{y : CompSC A | y.val ∈ ⋃ p, (moves x) p} := λ x => ⟨⟨x.1,x.2.right⟩,x.2.left⟩;
+  have h3 : g∘f = id := by congr;
+  have h4 : Function.LeftInverse g f := by 
+    dsimp [Function.LeftInverse]
+    intro x
+    congr;
+  have h5 : Small.{u} {y:Hex A | y ∈ ⋃ p, (moves x) p ∧ Sum.isRight (moves_or y)} := by infer_instance;
+  small_of_injective (Function.LeftInverse.injective h4)
+
+/-- The set of composite games reachable from a given composite game is small. -/
+instance comp.small_setOf_subposition {A : Type} (x : CompSC.{u} A) : Small.{u} {y | comp.Subposition y x} := 
+  @small_transGen'  
+
+
+
+
+
+
 /-- option x y : x is in the left or right set of the (composite) game y. -/
-def option {A : Type} : (Hex A) → (CompSC A) → Prop := fun x y => x ∈ ⋃ p, (moves y) p
+def option {A : Type} : (Hex A) → (Hex A) → Prop := fun x y => ∃ h:y ∈ CompSC A, x ∈ ⋃ p, (moves ⟨y,h⟩) p
 
 /-- A proper subposition of a (composite) game y is any game reachable by a nonempty sequence of left and right moves. -/
-inductive Subposition {A : Type} : (Hex A) → (CompSC A) -> Prop where
-| single {a:Hex A} {b:CompSC A} : option a b → Subposition a b
-| tail {a:Hex A} {b c : CompSC A}: Subposition a b → option (b.val) c → Subposition a c
+def Subposition {A : Type} : (Hex A) -> (Hex A) -> Prop := Relation.TransGen option
 
 @[aesop unsafe apply 50%]
 theorem Subposition.of_mem_moves {A : Type} {p} {x : Hex A} {y : CompSC A} (h : x ∈ moves y p) : Subposition x y :=
-  Subposition.single (Set.mem_iUnion_of_mem p h)
+  Relation.TransGen.single (by 
+    use y.2
+    have h1:y=⟨y.1,y.2⟩ := by congr;
+    rw [← h1]
+    apply Set.mem_iUnion_of_mem p
+    use h)
 
 /-- transitivity of Subposition relation -/
-theorem Subposition.trans {A : Type} {a : Hex A} {b c : CompSC A} : Subposition a b → Subposition b.val c -> Subposition a c := by 
-  intro hab hbc
-  induction hbc with
-  | @single c h => exact Subposition.tail hab h
-  | @tail x c _ h ih => exact Subposition.tail ih h
+theorem Subposition.trans {A : Type} {a b c : Hex A} : Subposition a b → Subposition b c -> Subposition a c := Relation.TransGen.trans
 
--- unfortunately we cannot define an instance of "IsTrans" because of the subtype nature of our definition. We will be able to give an instance of IsTrans for the definition of followers.
+instance {A : Type} : IsTrans (Hex A) Subposition := inferInstanceAs (IsTrans _ (Relation.TransGen _))
+  
+
+-- unfortunately we cannot give an instance of "IsTrans" because of the subtype nature of our definition. We will be able to give an instance of IsTrans for the definition of followers.
+
 
 end
 end Hex
