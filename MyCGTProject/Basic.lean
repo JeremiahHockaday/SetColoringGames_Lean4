@@ -318,6 +318,8 @@ theorem ofSets_inj {A : Type} {s₁ s₂ t₁ t₂ : Set (Hex A)} [Small s₁] [
     !{s₁ | t₁} = !{s₂ | t₂} ↔ s₁ = s₂ ∧ t₁ = t₂ := by
   simp
 
+
+
 /-- option x y : x is in the left or right set of the (composite) game y. -/
 def option {A : Type} : (Hex A) → (CompSC A) → Prop := fun x y => x ∈ ⋃ p, (moves y) p
 
@@ -326,6 +328,18 @@ inductive Subposition {A : Type} : (Hex A) → (CompSC A) -> Prop where
 | single {a:Hex A} {b:CompSC A} : option a b → Subposition a b
 | tail {a:Hex A} {b c : CompSC A}: Subposition a b → option (b.val) c → Subposition a c
 
+@[aesop unsafe apply 50%]
+theorem Subposition.of_mem_moves {A : Type} {p} {x : Hex A} {y : CompSC A} (h : x ∈ moves y p) : Subposition x y :=
+  Subposition.single (Set.mem_iUnion_of_mem p h)
+
+/-- transitivity of Subposition relation -/
+theorem Subposition.trans {A : Type} {a : Hex A} {b c : CompSC A} : Subposition a b → Subposition b.val c -> Subposition a c := by 
+  intro hab hbc
+  induction hbc with
+  | @single c h => exact Subposition.tail hab h
+  | @tail x c _ h ih => exact Subposition.tail ih h
+
+-- unfortunately we cannot define an instance of "IsTrans" because of the subtype nature of our definition. We will be able to give an instance of IsTrans for the definition of followers.
 
 end
 end Hex
