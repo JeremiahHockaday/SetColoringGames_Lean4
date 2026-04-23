@@ -1,13 +1,12 @@
 import Mathlib.Data.Fintype.Defs
 import Mathlib.Logic.Small.Set
-import Mathlib.Data.TypeVec
-import Mathlib.Control.Functor.Multivariate
 import Mathlib.Data.QPF.Univariate.Basic
 import Mathlib.Data.Set.Image
 import Mathlib.Data.Set.Basic
 import MyCGTProject.Player
 import MyCGTProject.Small
 import Mathlib.Data.Finset.Basic
+
 
 set_option linter.style.lambdaSyntax false
 set_option linter.style.longLine false
@@ -31,11 +30,91 @@ inductive listGame (α : Type u) where
 -- | game : (Set (badSetGame α)) → (Set (badSetGame α))→ badSetGame α
 
 
+instance small_isEmpty {α : Type (u + 1)} [IsEmpty α] : Small.{u} α := by 
+  let f : α→Unit := λ _ => Unit.unit;
+  infer_instance;
 
+@[reducible]
+noncomputable def Nonempty_equiv (α) {β} [inst : Nonempty α] (h : Equiv α β) : Nonempty β := 
+  let x := Classical.choice (inst);
+  let h' := Equiv.toFun h;
+  Nonempty.intro (h' x) 
 -- now defining the QPF!!!
 
 
+-- Set Functor
+/-- Truthfully I just wanted a way to write Set.map, which is not included in lean for some baffling reason. -/
+def Set.map : {α : Type (u)} → {β : Type (u)} → 
+(α → β) → Set α → Set β := Set.image
+
+def sub_temp_left {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype p)) : X→ Set.image Subtype.val X := λ x => ⟨x.val, by 
+    let ⟨⟨a,ha⟩,hy⟩ := x;
+    simp only [Set.mem_image, Subtype.exists, exists_and_right, exists_eq_right]
+    constructor
+    · exact hy
+    · exact ha 
+    ⟩
+
+def sub_temp_right {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype p)) : Set.image Subtype.val X → X := λ x => ⟨⟨x.val, by 
+    let ⟨a,⟨⟨b1,b2⟩,⟨hb1,hb2⟩⟩⟩ := x;
+    simp only at hb2
+    have hn : p a := by 
+      simp only [hb2] at b2
+      exact b2
+    simp only
+    exact hn⟩, by
+      let ⟨a,⟨⟨b1,b2⟩,⟨hb1,hb2⟩⟩⟩ := x;
+      simp only at hb2
+      have hn : p a := by 
+        rw [hb2] at b2
+        exact b2
+      have hx : Subtype.mk b1 b2 = ⟨a,hn⟩:= by
+        ext
+        simp only
+        exact hb2;
+      simp [← hx, hb1]⟩
+
+theorem sub_tem_left_inj {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype p)) : Function.Injective (sub_temp_left p X) 
+  := by
+    intro b c hi
+    simp only [sub_temp_left] at hi
+    ext
+    simp only [Subtype.mk.injEq] at hi
+    exact hi;
+theorem sub_tem_right_inj {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype p)) : Function.Injective (sub_temp_right p X) := by
+  intro b c hi
+  ext 
+  simp only [sub_temp_right] at hi
+  simp only [Subtype.mk.injEq] at hi
+  rw [hi] 
+
+def subtype_set_im_equiv {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype p)) : Equiv X (Set.map Subtype.val X) := ⟨sub_temp_left p X,sub_temp_right p X, by
+  intro x
+  simp only [sub_temp_right,sub_temp_left]
+, by
+  intro x
+  simp only [sub_temp_right, sub_temp_left, Subtype.coe_eta]
+  ⟩
+
+instance subtype_set_small {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype p)) [Small.{u} X] : Small.{u} (Set.map Subtype.val X):= by 
+  let f := sub_temp_left p X;
+  have hl : Function.Injective f := by
+    intro b c hi
+    simp only [f,sub_temp_left] at hi
+    ext
+    simp only [Subtype.mk.injEq] at hi
+    exact hi;
+  let g := sub_temp_right p X;
+  have hg : Function.Injective g := by
+    intro b c hi
+    ext 
+    simp only [g, sub_temp_right] at hi
+    simp only [Subtype.mk.injEq] at hi
+    rw [hi]
+  exact small_of_injective (hg)
+
 -- Dicot Functor
+/-- We no longer need this definition, as SCFunctor was re-defined to subsume this. However, it is nice. DicotFunctor describes the shape of composite games: games with no empty left/right sets of options. -/
 def DicotFunctor (α : Type (u + 1)) : Type (u+1):= 
 {s : (Player→ Set α) | ∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)}
 
@@ -48,15 +127,49 @@ fun {α} {β} f s => ⟨(f '' s.1 ·), fun p =>  And.intro
 instance : Functor DicotFunctor where
 map:= DicotFunctor.map
 
+
+/-- Given ( A : Type), the functor "SCFunctor A" describes the shape of set coloring games. a set coloring game is either atomic (meaning a single element of a poset) or composite (a pair of non-empty sets of set coloring games). -/
 def SCFunctor (A : Type) (α : Type (u + 1)) : Type ((u + 1)) :=
- A ⊕ (DicotFunctor α)
+ A ⊕ {s : (Player→ Set α) | ∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)}
+
+
+/-- Given (A : Type), "SCFunctor A" affects morphisms as follows: it does not change the elements of A, and it changes α to β componentwise. -/
+def SCFunctor.map : (A : Type) → {α : Type (u + 1)} → {β : Type (u+1)} → 
+(α → β) → SCFunctor A α → SCFunctor A β := λ A {α} {β} f s => (@Sum.map.{0,0,(u + 1),(u + 1)} A A ({s : (Player→ Set α) | ∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)}) ({s : (Player→ Set β) | ∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)}) 
+--
+(@id A) (fun s => ⟨(f '' s.1 ·), fun p =>  And.intro 
+(have h1:=(s.property p).left; by infer_instance) 
+(have h2 := (s.property p).right;  @Set.Nonempty.image α β (f) (s.1 p) h2 )⟩)) s
+
 
 instance Funct_SCFunctor : Functor (SCFunctor A) where 
-map f := Sum.map (@id A) (DicotFunctor.map f)  
+map f := SCFunctor.map A f
 
+/-- f<$> s is a notation that lean prefers, so we use this to differentiate. -/
 theorem map_def {A α β} (f : α → β) (s : SCFunctor A α) :
-    f <$> s = Sum.map (@id A) (DicotFunctor.map f) s:=
-  rfl
+    f <$> s = SCFunctor.map A f s := rfl 
+
+lemma tempName {α : Type (u + 1)} {q : α → Prop}
+(st : Player → Set (Subtype q))
+(hst : st ∈ {s: Player → Set (Subtype q)|∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)}) : (λ p => Set.image Subtype.val (st p)) ∈ {s: Player→Set α| ∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)} := by 
+  simp only [Player.forall, Set.mem_setOf_eq, Set.image_nonempty]
+  simp only [Player.forall, Set.mem_setOf_eq] at hst
+  let ⟨⟨a,b⟩,⟨c,d⟩⟩ := hst
+  constructor
+  constructor
+  · exact subtype_set_small (q) (st Player.left)
+  · exact b
+  constructor
+  · exact subtype_set_small (q) (st Player.right)
+  · exact d;
+
+
+theorem property_subsumption {A : Type} {α : Type (u + 1)} {q : α → Prop}
+(st : Player → Set (Subtype q))
+(hst : st ∈ {s: Player → Set (Subtype q)|∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)})
+(h : (λ p => Set.map Subtype.val (st p)) ∈ {s: Player→Set α| ∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)}) : 
+SCFunctor.map.{u} A Subtype.val (Sum.inr (⟨st,hst⟩))  = Sum.inr (⟨(λ p => Set.map Subtype.val (st p)),h⟩)
+:= by congr;
 
 
 -----------------------------------------------------------------------
@@ -190,10 +303,12 @@ theorem moves_or_mk_atom_id {A : Type} (x : A) : moves_or (mk_atom x) = Sum.inl 
   rw [QPF.Fix.dest_mk] 
 
 -- Special Games
-noncomputable def is_atomic {A : Type} : (Hex A) → Bool := λ g => Sum.isLeft (moves_or g)
-noncomputable def is_composite {A : Type} : ( Hex A) → Bool := λ g => Sum.isRight (moves_or g)
-
-
+noncomputable def casesSC {A : Type} {α : (Hex.{u} A) → Prop} (ha : ∀ a : AtomSC A, α a.1) (hc : ∀ g : CompSC A, α g.1) : ∀ x : (Hex.{u} A), α x := by
+  intro x
+  cases h : Sum.isRight (moves_or x)
+  ·have h1 : (moves_or x).isLeft := Sum.isRight_eq_false.mp h;
+   exact (ha ⟨x,h1⟩)
+  ·exact (hc ⟨x,h⟩)
 
 namespace Hex
 export Player (left right)
@@ -320,58 +435,22 @@ theorem ofSets_inj {A : Type} {s₁ s₂ t₁ t₂ : Set (Hex A)} [Small s₁] [
   simp
 
 
-
-/-- Because of the diffference between composite and atomic games, we must define subpositions very carefully. -/
-def comp.Subposition {A : Type} : (CompSC A) → (CompSC A) → Prop := Relation.TransGen λ x y => x.val ∈ ⋃ p, (moves y) p
-
-@[aesop unsafe apply 50%]
-theorem comp.Subposition.of_mem_moves {A : Type} {p} {x y : CompSC A} (h : x.val ∈ moves y p) : comp.Subposition x y :=
-  Relation.TransGen.single (Set.mem_iUnion_of_mem p h)
-
-theorem comp.Subposition.trans {A : Type} {x y z : CompSC A} (h₁ : comp.Subposition x y) (h₂ : comp.Subposition y z) :
-    comp.Subposition x z :=
-  Relation.TransGen.trans h₁ h₂
-
-instance {A : Type} : IsTrans (CompSC A) comp.Subposition := inferInstanceAs (IsTrans _ (Relation.TransGen _))
-
-/-- The set of composite options of a given composite game is small. -/
-instance comp.small_setOf_options {A : Type} : 
-∀ x : (CompSC.{u} A),  Small.{u , u + 1} {y : CompSC A | y.val ∈ ⋃ p, (moves x) p} := 
-  λ x =>
-  have h1 : Small.{u} (⋃ p, (moves x) p) := by infer_instance;
-  let f : {y : CompSC A | y.val ∈ ⋃ p, (moves x) p}→{y:Hex A | y ∈ ⋃ p, (moves x) p ∧ Sum.isRight (moves_or y)} := λ x => ⟨x.1.1,⟨x.2,x.1.2⟩⟩;
-  let g : {y:Hex A | y ∈ ⋃ p, (moves x) p ∧ Sum.isRight (moves_or y)}→{y : CompSC A | y.val ∈ ⋃ p, (moves x) p} := λ x => ⟨⟨x.1,x.2.right⟩,x.2.left⟩;
-  have h3 : g∘f = id := by congr;
-  have h4 : Function.LeftInverse g f := by 
-    dsimp [Function.LeftInverse]
-    intro x
-    congr;
-  have h5 : Small.{u} {y:Hex A | y ∈ ⋃ p, (moves x) p ∧ Sum.isRight (moves_or y)} := by infer_instance;
-  small_of_injective (Function.LeftInverse.injective h4)
-
-/-- The set of composite games reachable from a given composite game is small. -/
-instance comp.small_setOf_subposition {A : Type} (x : CompSC.{u} A) : Small.{u} {y | comp.Subposition y x} := 
-  @small_transGen'  
+-- Because of the diffference between composite and atomic games, we must define subpositions very carefully.
 
 
-
-
-
-
-/-- option x y : x is in the left or right set of the (composite) game y. -/
-def option {A : Type} : (Hex A) → (Hex A) → Prop := fun x y => ∃ h:y ∈ CompSC A, x ∈ ⋃ p, (moves ⟨y,h⟩) p
+/-- option x y : y is composite and x is in the left or right set of the game y. -/
+def option {A : Type} : (Hex.{u} A) → (Hex.{u} A) → Prop := fun x y => ∃ h:y ∈ CompSC.{u} A, x ∈ ⋃ p, (moves.{u} ⟨y,h⟩) p
 
 /-- A proper subposition of a (composite) game y is any game reachable by a nonempty sequence of left and right moves. -/
 def Subposition {A : Type} : (Hex A) -> (Hex A) -> Prop := Relation.TransGen option
 
 @[aesop unsafe apply 50%]
-theorem Subposition.of_mem_moves {A : Type} {p} {x : Hex A} {y : CompSC A} (h : x ∈ moves y p) : Subposition x y :=
+theorem Subposition.of_mem_moves {A : Type} {p} {x : Hex A} {y : Hex A} (h : ∃ hy : y ∈ CompSC A, x ∈ moves ⟨y, hy⟩ p) : Subposition x y :=
   Relation.TransGen.single (by 
-    use y.2
-    have h1:y=⟨y.1,y.2⟩ := by congr;
-    rw [← h1]
-    apply Set.mem_iUnion_of_mem p
-    use h)
+    unfold option
+    let ⟨a,b⟩ := h
+    simp only [Set.mem_iUnion]
+    use a,p,b)
 
 /-- transitivity of Subposition relation -/
 theorem Subposition.trans {A : Type} {a b c : Hex A} : Subposition a b → Subposition b c -> Subposition a c := Relation.TransGen.trans
@@ -379,7 +458,104 @@ theorem Subposition.trans {A : Type} {a b c : Hex A} : Subposition a b → Subpo
 instance {A : Type} : IsTrans (Hex A) Subposition := inferInstanceAs (IsTrans _ (Relation.TransGen _))
   
 
--- unfortunately we cannot give an instance of "IsTrans" because of the subtype nature of our definition. We will be able to give an instance of IsTrans for the definition of followers.
+instance comp.small_setOf_options {A : Type} : 
+∀ x : (CompSC.{u} A),  Small.{u , u + 1} {y : Hex A | y ∈ ⋃ p, (moves x) p} := 
+  λ x =>
+  have h1 : Small.{u} (⋃ p, (moves x) p) := by infer_instance;
+  let f : {y : Hex A | y ∈ ⋃ p, (moves x) p} → ⋃ p, (moves x) p := λ x => x;
+  let g : ⋃ p, (moves x) p→{y : Hex A | y ∈ ⋃ p, (moves x) p} := λ x => x;
+  have h3 : g∘f = id := by congr;
+  have h4 : Function.LeftInverse g f := by 
+    dsimp [Function.LeftInverse]
+    intro x
+    congr;
+  small_of_injective (Function.LeftInverse.injective h4)
+
+instance Atom_no_options {A : Type} (x : Hex.{u} A) (h : Sum.isLeft (moves_or x)) : IsEmpty {y : Hex A // y.option x}:=
+have h1 := Sum.isRight_eq_false.mpr h;
+    have h2 : x ∉ CompSC.{u} A  := by 
+      false_or_by_contra
+      have h2a : Sum.isRight (moves_or x) := by congr;
+      have h2b : true = false := by 
+        have h2c : x=x := rfl;
+        apply @congrArg _ _ x x ( Sum.isRight∘(@moves_or A)) at h2c 
+        dsimp [Function.comp] at h2c
+        nth_rewrite 1 [h2a] at h2c
+        rw [h1] at h2c
+        exact h2c
+      contradiction;
+    have h3 : ∀ y : {y : Hex A | option y x}, False := by 
+      intro ⟨y,a⟩
+      apply Exists.nonempty at a;
+      apply (@nonempty_prop (x ∈ CompSC A)).mp at a;
+      contradiction;
+    by exact (isEmpty_iff.mpr h3)
+
+instance small_setOf_options {A : Type} : ∀ x : (Hex.{u} A),  Small.{u , u + 1} {y : Hex A // y.option x} := λ x => by 
+  dsimp [option]
+  cases h : Sum.isLeft (moves_or x) 
+  · have h1 : (moves_or x).isRight := Sum.isLeft_eq_false.mp h;
+    have h2 : x∈ CompSC.{u} A := by congr;
+    let f : {y : Hex A | option y x} → {y:Hex A | y∈ ⋃ p, (moves ⟨x,h2⟩) p} := 
+      λ y => ⟨y.1, y.2.2⟩;
+    have h3 : Function.Injective f := by 
+      intro ⟨x,xh⟩ ⟨y,yh⟩ h'
+      unfold f at h'
+      congr
+      apply Subtype.ext_iff.mp at h'
+      exact h';
+    exact small_of_injective (h3);
+  · have h1 := Atom_no_options x h;
+    exact @small_isEmpty {y : Hex A // y.option x} h1
+
+instance small_setOf_subposition {A : Type} (x : Hex.{u} A) : Small.{u} {y : Hex A  | Subposition y x} :=
+  small_transGen' _ x 
+
+theorem atomOption_Acc {A : Type} (x : AtomSC A) : Acc  (@option A) x.1 := by
+  unfold option
+  have h1:=isEmpty_iff.mp (Atom_no_options x.1 x.2);
+  constructor
+  intro y hy
+  exfalso
+  exact (h1 ⟨y,hy⟩)
+  
+
+
+-- the following is from ChatGPT (unfortunately)  
+theorem acc_all {A : Type} (x : Hex.{u} A) : @Acc.{u+2} (Hex.{u} A) (@option.{u} A) x := by 
+  apply (@QPF.Fix.ind.{u+1} (SCFunctor A) (_))
+  rintro val ⟨fx,rfl⟩
+  cases fx with 
+  | inl a =>
+    constructor
+    intro y h1
+    rcases h1 with ⟨hcomp, hy⟩
+    cases hcomp
+  | inr g =>
+    let ⟨st,hst⟩ := g;
+    constructor
+    rintro y hy
+    let temp := SCFunctor.map A (Subtype.val) (Sum.inr ⟨st, hst⟩);
+    have htemp : SCFunctor.map A (Subtype.val) (Sum.inr ⟨st, hst⟩) = temp := rfl;
+    rw [map_def] at hy
+    dsimp only [option]at hy
+    simp only [Set.mem_iUnion] at hy
+    have htemp4:  SCFunctor.map A (Subtype.val) (Sum.inr ⟨st, hst⟩) = @Sum.inr A (_) (⟨(λ p => Set.map Subtype.val (st p)),tempName st hst⟩) := by congr;
+    rw [htemp4] at hy
+    dsimp [moves,moves_or] at hy
+    simp only [QPF.Fix.dest_mk] at hy 
+    rcases hy with ⟨a,b,⟨c,hc⟩,⟨dl,dr⟩⟩
+    simp only at dr
+    rw [dr] at hc
+    exact hc
+
+--  rw [← Sum.getRight_inr] at hg
+theorem subposition_wf {A : Type} : @WellFounded (Hex A) Subposition := by
+  refine ⟨fun x => Acc.transGen ?x⟩
+  exact acc_all x
+
+instance {A : Type} : IsWellFounded (Hex A) Subposition := ⟨subposition_wf⟩
+instance {A : Type} : WellFoundedRelation (Hex A) := ⟨Subposition, instIsWellFoundedSubposition.wf⟩
 
 
 end
