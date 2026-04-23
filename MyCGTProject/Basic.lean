@@ -260,12 +260,33 @@ theorem moves_or_mk_atom_id {A : Type} (x : A) : moves_or (mk_atom x) = Sum.inl 
   rw [QPF.Fix.dest_mk] 
 
 -- Special Games
-noncomputable def casesSC {A : Type} {α : (Hex.{u} A) → Prop} (ha : ∀ a : AtomSC A, α a.1) (hc : ∀ g : CompSC A, α g.1) : ∀ x : (Hex.{u} A), α x := by
-  intro x
+noncomputable def casesSC {A : Type} {α : (Hex.{u} A) → Prop} (ha : ∀ a : AtomSC A, α a.1) (hc : ∀ g : CompSC A, α g.1) ( x : (Hex.{u} A)): α x := by
   cases h : Sum.isRight (moves_or x)
   ·have h1 : (moves_or x).isLeft := Sum.isRight_eq_false.mp h;
    exact (ha ⟨x,h1⟩)
   ·exact (hc ⟨x,h⟩)
+
+theorem Atom_nComp_iff {A : Type} {x : Hex A} : x∈ AtomSC A ↔ x ∉CompSC A := by
+  dsimp [CompSC] 
+  dsimp [AtomSC]
+  constructor
+  · intro ha
+    simp only [Bool.not_eq_true, Sum.isRight_eq_false]
+    exact ha
+  · intro nhc
+    simp only [Bool.not_eq_true, Sum.isRight_eq_false] at nhc
+    exact nhc
+theorem Comp_nAtom_iff {A : Type} {x : Hex A} : x∈ CompSC A ↔ x ∉AtomSC A := by
+  dsimp [CompSC]
+  dsimp [AtomSC]
+  constructor
+  · intro nhc
+    simp only [Bool.not_eq_true, Sum.isLeft_eq_false]
+    exact nhc
+  · intro ha
+    simp only [Bool.not_eq_true, Sum.isLeft_eq_false] at ha
+    exact ha
+
 
 namespace Hex
 export Player (left right)
@@ -402,12 +423,12 @@ def option {A : Type} : (Hex.{u} A) → (Hex.{u} A) → Prop := fun x y => ∃ h
 def Subposition {A : Type} : (Hex A) -> (Hex A) -> Prop := Relation.TransGen option
 
 @[aesop unsafe apply 50%]
-theorem Subposition.of_mem_moves {A : Type} {p} {x : Hex A} {y : Hex A} (h : ∃ hy : y ∈ CompSC A, x ∈ moves ⟨y, hy⟩ p) : Subposition x y :=
+theorem Subposition.of_mem_moves {A : Type} {x : Hex A} {y : CompSC A} (h : x ∈ ⋃ p, (moves.{u} y) p) : Subposition x y.1 :=
   Relation.TransGen.single (by 
     unfold option
-    let ⟨a,b⟩ := h
-    simp only [Set.mem_iUnion]
-    use a,p,b)
+    have h':y.1∈ CompSC A := by 
+      simp
+    use h')
 
 /-- transitivity of Subposition relation -/
 theorem Subposition.trans {A : Type} {a b c : Hex A} : Subposition a b → Subposition b c -> Subposition a c := Relation.TransGen.trans
@@ -468,14 +489,7 @@ instance small_setOf_options {A : Type} : ∀ x : (Hex.{u} A),  Small.{u , u + 1
 instance small_setOf_subposition {A : Type} (x : Hex.{u} A) : Small.{u} {y : Hex A  | Subposition y x} :=
   small_transGen' _ x 
 
-theorem atomOption_Acc {A : Type} (x : AtomSC A) : Acc  (@option A) x.1 := by
-  unfold option
-  have h1:=isEmpty_iff.mp (Atom_no_options x.1 x.2);
-  constructor
-  intro y hy
-  exfalso
-  exact (h1 ⟨y,hy⟩)
-  
+-------------------------------------------------  
 
 lemma tempName {α : Type (u + 1)} {q : α → Prop}
 (st : Player → Set (Subtype q))
@@ -524,6 +538,143 @@ theorem subposition_wf {A : Type} : @WellFounded (Hex A) Subposition := by
 
 instance {A : Type} : IsWellFounded (Hex A) Subposition := ⟨subposition_wf⟩
 instance {A : Type} : WellFoundedRelation (Hex A) := ⟨Subposition, instIsWellFoundedSubposition.wf⟩
+
+theorem Subposition.irrefl {A : Type} (x : Hex A) : ¬Subposition x x := _root_.irrefl x
+
+theorem option.irrefl {A : Type} (x : Hex A) : ¬option x x := by 
+  apply @casesSC A (λ x => ¬x.option x)
+  · intro a 
+    unfold option
+    simp only [Set.mem_iUnion, not_exists]
+    intro ha
+    have h' := Comp_nAtom_iff.mp ha
+    have h'' := a.2
+    contradiction
+  · intro g ho 
+    have h' := Subposition.irrefl g.1
+    dsimp only [Subposition] at h'
+    rw [Relation.transGen_iff] at h'
+    simp only [not_or, not_exists, not_and] at h'
+    obtain ⟨y,z⟩ := h'
+    contradiction
+
+theorem self_notMem_moves (A : Type) (p : Player) (x : CompSC A) : x.val ∉ moves x p :=  
+  fun hx => Subposition.irrefl x.1 (.of_mem_moves (by 
+  simp only [Set.mem_iUnion]
+  use p))
+
+/-- `WSubposition x y` is the non-strict version of `Subposition x y`. -/
+@[expose]
+def WSubposition {A : Type} (x y : Hex A) : Prop := x = y ∨ Subposition x y
+
+theorem subposition_iff_exists {A : Type} {x y : Hex A} : Subposition x y ↔
+   ∃ h : (y∈ CompSC A),∃ p:Player, ∃ z ∈  moves (⟨y,h⟩) p, WSubposition x z := by
+   unfold WSubposition Subposition
+   rw [Relation.transGen_iff]
+   dsimp only [option]
+   simp_rw [Set.mem_iUnion]   
+   constructor
+   · intro hmp
+     cases hmp with
+     | inl hl => 
+       let ⟨a,⟨i,hi⟩⟩ := hl
+       use a,i,x
+       constructor
+       · exact hi
+       · simp only [true_or]
+     | inr hr => 
+       let ⟨a,⟨bl,⟨hy,⟨i,hi⟩⟩⟩⟩ := hr
+       use hy,i,a
+       constructor
+       · exact hi
+       · simp only [bl, or_true]
+   · intro hmpr 
+     let ⟨a,i,c,⟨d1,d2⟩⟩  := hmpr
+     cases d2 with 
+     | inl hl => 
+       left
+       use a, i
+       rw [←hl] at d1
+       exact d1
+     | inr hr => 
+       right
+       use c
+       constructor
+       · exact hr
+       · use a,i
+
+@[simp, refl] theorem WSubposition.refl {A : Type} (x : Hex A) : WSubposition x x := .inl rfl
+theorem WSubposition.rfl {A : Type} {x : Hex A} : WSubposition x x := .refl x
+theorem wsubposition_of_eq {A : Type} {x y : Hex A} (hxy : x = y) : WSubposition x y := hxy ▸ .rfl
+
+theorem wsubposition_of_subposition {A : Type} {x y : Hex A} (h : Subposition x y) :
+    WSubposition x y := .inr h
+
+alias Subposition.wsubposition := wsubposition_of_subposition
+
+theorem subposition_of_wsubposition_of_subposition {A : Type} {x y z : Hex A}
+    (hxy : WSubposition x y) (hyz : Subposition y z) : Subposition x z := by
+  obtain rfl | hxy := hxy
+  · exact hyz
+  · exact hxy.trans hyz
+
+theorem subposition_of_subposition_of_wsubposition {A : Type} {x y z : Hex A}
+    (hxy : Subposition x y) (hyz : WSubposition y z) : Subposition x z := by
+  obtain rfl | hyz := hyz
+  · exact hxy
+  · exact hxy.trans hyz
+
+alias WSubposition.trans_subposition := subposition_of_wsubposition_of_subposition
+alias Subposition.trans_wsubposition' := subposition_of_wsubposition_of_subposition
+alias Subposition.trans_wsubposition := subposition_of_subposition_of_wsubposition
+alias WSubposition.trans_subposition' := subposition_of_subposition_of_wsubposition
+
+@[trans] theorem wsubposition_trans {A : Type} {x y z : Hex A}
+    (hxy : WSubposition x y) (hyz : WSubposition y z) : WSubposition x z := by
+  obtain rfl | hyz := hyz
+  · exact hxy
+  · exact (hxy.trans_subposition hyz).wsubposition
+
+alias WSubposition.trans := wsubposition_trans
+
+instance {A : Type} : @Trans (Hex A) (_) (_) Subposition Subposition Subposition := ⟨Subposition.trans⟩
+instance {A : Type} : @Trans (Hex A) (_) (_) WSubposition Subposition Subposition := ⟨WSubposition.trans_subposition⟩
+instance {A : Type} : @Trans (Hex A) (_) (_) Subposition WSubposition Subposition := ⟨Subposition.trans_wsubposition⟩
+instance {A : Type} : @Trans (Hex A) (_) (_) WSubposition WSubposition WSubposition := ⟨WSubposition.trans⟩
+
+theorem not_subposition_of_wsubposition {A : Type} {x y : Hex A} (hxy : WSubposition x y) :
+    ¬Subposition y x := fun hyx => Subposition.irrefl x (hxy.trans_subposition hyx)
+
+theorem not_wsubposition_of_subposition {A : Type} {x y : Hex A} (hxy : Subposition x y) :
+    ¬WSubposition y x := fun hyx => Subposition.irrefl x (hxy.trans_wsubposition hyx)
+
+alias WSubposition.not_subposition := not_subposition_of_wsubposition
+alias Subposition.not_wsubposition := not_wsubposition_of_subposition
+
+theorem wsubposition_antisymm {A : Type} {x y : Hex A}
+    (hxy : WSubposition x y) (hyx : WSubposition y x) : x = y :=
+  hxy.resolve_right fun h => Subposition.irrefl x (h.trans_wsubposition hyx)
+
+alias WSubposition.antisymm := wsubposition_antisymm
+
+theorem wsubposition_antisymm_iff {A : Type} {x y : Hex A} : x = y ↔ WSubposition x y ∧ WSubposition y x :=
+  ⟨fun h => h ▸ ⟨.rfl, .rfl⟩, fun h => h.1.antisymm h.2⟩
+
+theorem subposition_of_wsubposition_of_ne {A : Type} {x y : Hex A} (hw : WSubposition x y) (hne : x ≠ y) :
+    Subposition x y := hw.resolve_left hne
+
+theorem subposition_of_wsubposition_not_wsubposition {A : Type} {x y : Hex A}
+    (hxy : WSubposition x y) (hyx : ¬WSubposition y x) : Subposition x y :=
+  hxy.resolve_left fun h => hyx (wsubposition_of_eq h.symm)
+
+theorem subposition_iff_wsubposition_not_wsubposition {A : Type} {x y : Hex A} :
+    Subposition x y ↔ WSubposition x y ∧ ¬WSubposition y x :=
+  ⟨fun hxy => ⟨hxy.wsubposition, hxy.not_wsubposition⟩,
+    fun h => subposition_of_wsubposition_not_wsubposition h.1 h.2⟩
+
+theorem WSubposition.of_mem_moves {A : Type} {x : Hex A} {y : CompSC A} (h : x ∈ ⋃ p, (moves.{u} y) p) :
+    WSubposition x y := (Subposition.of_mem_moves h).wsubposition
+
 
 
 end
