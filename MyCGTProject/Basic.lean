@@ -13,16 +13,8 @@ set_option linter.style.longLine false
 set_option linter.unnecessarySeqFocus false
 --set_option trace.Meta.synthInstance true
 
-universe u v
+universe u
 
-
-inductive listGame (α : Type u) where
-| atom : α → listGame α 
-| game : (List (listGame α)) → (List (listGame α))→ listGame α
-
--- inductive Player where
--- | left: Player
--- | right: Player
 
 -- The following definition does not work, as it is non-positive (and lean tells us this). 
 -- inductive badSetGame (α : Type u) where
@@ -42,10 +34,6 @@ noncomputable def Nonempty_equiv (α) {β} [inst : Nonempty α] (h : Equiv α β
 -- now defining the QPF!!!
 
 
--- Set Functor
-/-- Truthfully I just wanted a way to write Set.map, which is not included in lean for some baffling reason. -/
-def Set.map : {α : Type (u)} → {β : Type (u)} → 
-(α → β) → Set α → Set β := Set.image
 
 def sub_temp_left {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype p)) : X→ Set.image Subtype.val X := λ x => ⟨x.val, by 
     let ⟨⟨a,ha⟩,hy⟩ := x;
@@ -58,11 +46,9 @@ def sub_temp_left {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype p)) : 
 def sub_temp_right {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype p)) : Set.image Subtype.val X → X := λ x => ⟨⟨x.val, by 
     let ⟨a,⟨⟨b1,b2⟩,⟨hb1,hb2⟩⟩⟩ := x;
     simp only at hb2
-    have hn : p a := by 
-      simp only [hb2] at b2
-      exact b2
+    simp only [hb2] at b2
     simp only
-    exact hn⟩, by
+    exact b2⟩, by
       let ⟨a,⟨⟨b1,b2⟩,⟨hb1,hb2⟩⟩⟩ := x;
       simp only at hb2
       have hn : p a := by 
@@ -74,42 +60,26 @@ def sub_temp_right {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype p)) :
         exact hb2;
       simp [← hx, hb1]⟩
 
-theorem sub_tem_left_inj {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype p)) : Function.Injective (sub_temp_left p X) 
-  := by
-    intro b c hi
-    simp only [sub_temp_left] at hi
-    ext
-    simp only [Subtype.mk.injEq] at hi
-    exact hi;
-theorem sub_tem_right_inj {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype p)) : Function.Injective (sub_temp_right p X) := by
-  intro b c hi
-  ext 
-  simp only [sub_temp_right] at hi
-  simp only [Subtype.mk.injEq] at hi
-  rw [hi] 
-
-def subtype_set_im_equiv {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype p)) : Equiv X (Set.map Subtype.val X) := ⟨sub_temp_left p X,sub_temp_right p X, by
+def subtype_set_im_equiv {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype p)) : Equiv X (Set.image Subtype.val X) := 
+  ⟨sub_temp_left p X 
+  ,
+  sub_temp_right p X
+  , 
+  by
   intro x
   simp only [sub_temp_right,sub_temp_left]
-, by
+  , 
+  by
   intro x
   simp only [sub_temp_right, sub_temp_left, Subtype.coe_eta]
   ⟩
 
-instance subtype_set_small {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype p)) [Small.{u} X] : Small.{u} (Set.map Subtype.val X):= by 
+instance subtype_set_small {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype p)) [Small.{u} X] : Small.{u} (Set.image Subtype.val X):= by 
   let f := sub_temp_left p X;
-  have hl : Function.Injective f := by
+  have hg : Function.Injective (sub_temp_right p X) := by
     intro b c hi
-    simp only [f,sub_temp_left] at hi
-    ext
-    simp only [Subtype.mk.injEq] at hi
-    exact hi;
-  let g := sub_temp_right p X;
-  have hg : Function.Injective g := by
-    intro b c hi
+    simp only [sub_temp_right,Subtype.mk.injEq] at hi
     ext 
-    simp only [g, sub_temp_right] at hi
-    simp only [Subtype.mk.injEq] at hi
     rw [hi]
   exact small_of_injective (hg)
 
@@ -149,26 +119,13 @@ map f := SCFunctor.map A f
 theorem map_def {A α β} (f : α → β) (s : SCFunctor A α) :
     f <$> s = SCFunctor.map A f s := rfl 
 
-lemma tempName {α : Type (u + 1)} {q : α → Prop}
-(st : Player → Set (Subtype q))
-(hst : st ∈ {s: Player → Set (Subtype q)|∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)}) : (λ p => Set.image Subtype.val (st p)) ∈ {s: Player→Set α| ∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)} := by 
-  simp only [Player.forall, Set.mem_setOf_eq, Set.image_nonempty]
-  simp only [Player.forall, Set.mem_setOf_eq] at hst
-  let ⟨⟨a,b⟩,⟨c,d⟩⟩ := hst
-  constructor
-  constructor
-  · exact subtype_set_small (q) (st Player.left)
-  · exact b
-  constructor
-  · exact subtype_set_small (q) (st Player.right)
-  · exact d;
 
 
 theorem property_subsumption {A : Type} {α : Type (u + 1)} {q : α → Prop}
 (st : Player → Set (Subtype q))
 (hst : st ∈ {s: Player → Set (Subtype q)|∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)})
-(h : (λ p => Set.map Subtype.val (st p)) ∈ {s: Player→Set α| ∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)}) : 
-SCFunctor.map.{u} A Subtype.val (Sum.inr (⟨st,hst⟩))  = Sum.inr (⟨(λ p => Set.map Subtype.val (st p)),h⟩)
+(h : (λ p => Set.image Subtype.val (st p)) ∈ {s: Player→Set α| ∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)}) : 
+SCFunctor.map.{u} A Subtype.val (Sum.inr (⟨st,hst⟩))  = Sum.inr (⟨(λ p => Set.image Subtype.val (st p)),h⟩)
 := by congr;
 
 
@@ -520,10 +477,23 @@ theorem atomOption_Acc {A : Type} (x : AtomSC A) : Acc  (@option A) x.1 := by
   exact (h1 ⟨y,hy⟩)
   
 
+lemma tempName {α : Type (u + 1)} {q : α → Prop}
+(st : Player → Set (Subtype q))
+(hst : st ∈ {s: Player → Set (Subtype q)|∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)}) : (λ p => Set.image Subtype.val (st p)) ∈ {s: Player→Set α| ∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)} := by 
+  simp only [Player.forall, Set.mem_setOf_eq, Set.image_nonempty]
+  simp only [Player.forall, Set.mem_setOf_eq] at hst
+  let ⟨⟨a,b⟩,⟨c,d⟩⟩ := hst
+  constructor
+  constructor
+  · exact subtype_set_small (q) (st Player.left)
+  · exact b
+  constructor
+  · exact subtype_set_small (q) (st Player.right)
+  · exact d;
 
 -- the following is from ChatGPT (unfortunately)  
-theorem acc_all {A : Type} (x : Hex.{u} A) : @Acc.{u+2} (Hex.{u} A) (@option.{u} A) x := by 
-  apply (@QPF.Fix.ind.{u+1} (SCFunctor A) (_))
+theorem acc_all {A : Type} (x : Hex A) : Acc option x := by 
+  apply (QPF.Fix.ind)
   rintro val ⟨fx,rfl⟩
   cases fx with 
   | inl a =>
@@ -535,13 +505,11 @@ theorem acc_all {A : Type} (x : Hex.{u} A) : @Acc.{u+2} (Hex.{u} A) (@option.{u}
     let ⟨st,hst⟩ := g;
     constructor
     rintro y hy
-    let temp := SCFunctor.map A (Subtype.val) (Sum.inr ⟨st, hst⟩);
-    have htemp : SCFunctor.map A (Subtype.val) (Sum.inr ⟨st, hst⟩) = temp := rfl;
     rw [map_def] at hy
     dsimp only [option]at hy
     simp only [Set.mem_iUnion] at hy
-    have htemp4:  SCFunctor.map A (Subtype.val) (Sum.inr ⟨st, hst⟩) = @Sum.inr A (_) (⟨(λ p => Set.map Subtype.val (st p)),tempName st hst⟩) := by congr;
-    rw [htemp4] at hy
+    have hpull:  SCFunctor.map A (Subtype.val) (Sum.inr ⟨st, hst⟩) = @Sum.inr A (_) (⟨(λ p => Set.image Subtype.val (st p)),tempName st hst⟩) := by congr;
+    rw [hpull] at hy
     dsimp [moves,moves_or] at hy
     simp only [QPF.Fix.dest_mk] at hy 
     rcases hy with ⟨a,b,⟨c,hc⟩,⟨dl,dr⟩⟩
