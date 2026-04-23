@@ -6,6 +6,7 @@ import Mathlib.Data.Set.Basic
 import MyCGTProject.Player
 import MyCGTProject.Small
 import Mathlib.Data.Finset.Basic
+import Init.Data.Bool
 
 
 set_option linter.style.lambdaSyntax false
@@ -676,7 +677,33 @@ theorem WSubposition.of_mem_moves {A : Type} {x : Hex A} {y : CompSC A} (h : x �
     WSubposition x y := (Subposition.of_mem_moves h).wsubposition
 
 
+/-- The function "moves?" takes in a value x:Hex A and returns its moves if it has any, otherwise returns a pair of empty sets. -/
+def moves? {A : Type} : Hex A → Player → Set (Hex A) := λ x =>
+  if h:Sum.isRight (moves_or x) then moves ⟨x,h⟩ else (λ _ => ∅)
 
+
+theorem moves?_atom_empty {A : Type} (x : AtomSC A) (p : Player) : moves? x.1 p = ∅ := by
+  have h : Sum.isRight (moves_or x.1) = false := by
+    simp only [Sum.isRight_eq_false]
+    have := x.2 
+    dsimp [AtomSC] at this
+    exact this
+  dsimp only [moves?]
+  simp [h];
+  
+theorem temp {A : Type} {x y : Hex A} {h : x∈ CompSC A}: y ∈ moves? x p ↔ (False ∨ y ∈ moves ⟨x,h⟩ p) := by
+  constructor
+  · intro hmp
+    simp at hmp
+    
+    sorry
+  · intro hmpr
+  
+    sorry
+def recOn {motive : Hex A → Sort*} (x : Hex A) (mk : Π x, (Π p : Player, Π y ∈ moves? x p, motive y) → motive x) : motive x := subposition_wf.recursion (_) (_)  
+
+
+#check subposition_wf.recursion 
 end
 end Hex
 
