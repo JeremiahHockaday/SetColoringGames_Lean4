@@ -291,8 +291,6 @@ theorem Comp_nAtom_iff {A : Type} {x : Hex A} : x∈ CompSC A ↔ x ∉AtomSC A 
 
 namespace Hex
 export Player (left right)
-noncomputable section
-
 -----------------------------------------------------------------------------------
 
 /-! ### OfSetsSC -/
@@ -302,7 +300,7 @@ noncomputable section
 definition  of the `ofSetsSC` operation.
 Used to implement the `!{st}` and `!{s | t}` syntax.
 Here we construct a combinatorial Set Coloring game from its left and right sets. -/
-def ofSetsSC {A : Type} (st : Player → Set (Hex A)) [Small.{u} (st left)] [Nonempty (st left)] [Small.{u} (st right)] [Nonempty (st right)] : CompSC A := 
+noncomputable def ofSetsSC {A : Type} (st : Player → Set (Hex A)) [Small.{u} (st left)] [Nonempty (st left)] [Small.{u} (st right)] [Nonempty (st right)] : CompSC A := 
     @Subtype.mk (Hex A) (λ x => Sum.isRight (moves_or x)) (@mk_comp A ⟨st , 
       λ p => match p with
         |left => ⟨by assumption,(have h := Iff.mp (Set.nonempty_coe_sort); by apply h; assumption)⟩
@@ -718,18 +716,35 @@ theorem WSubposition.of_mem_moves {A : Type} {x : Hex A} {y : CompSC A} (h : x �
 
 
 @[elab_as_elim]
-def recOn {motive : Hex A → Sort*} (x : Hex A) (ind : Π x, (Π y : Hex A, Π _ : Subposition y x, motive y) → motive x) : motive x := 
+noncomputable def sRecOn {motive : Hex A → Sort*} (x : Hex A) (ind : Π x, (Π y : Hex A, Π _ : Subposition y x, motive y) → motive x) : motive x := 
 subposition_wf.recursion (_) (λ g ho => ind g ho )  
 
 @[simp]
-theorem recOn_eq {motive : Hex A → Sort*} (x : Hex A)
+theorem sRecOn_eq {motive : Hex A → Sort*} (x : Hex A)
     (ind : Π x, (Π y : Hex A, Π _ : Subposition y x, motive y)→ motive x) :
-    recOn x ind = ind x (λ y _ => recOn y ind) := 
+    sRecOn x ind = ind x (λ y _ => sRecOn y ind) := 
     subposition_wf.fix_eq ..
 
 
-end
+@[elab_as_elim]
+noncomputable def recOn {motive : Hex A → Sort*} (x : Hex A) (ind : Π x, (Π y : Hex A, Π _ : option y x, motive y) → motive x) : motive x := 
+subposition_wf.recursion (x) (fun g ho => ind g (fun _ h => (ho _ (optionSubposition h))))
+
+@[simp]
+theorem recOn_eq {motive : Hex A → Sort*} (x : Hex A)
+    (ind : Π x, (Π y : Hex A, Π _ : option y x, motive y)→ motive x) :
+    recOn x ind = ind x (λ y _ => recOn y ind) := 
+    subposition_wf.fix_eq ..
+
+/-- Discharges proof obligations of the form `⊢ Subposition ..` arising in termination proofs
+of definitions using well-founded recursion on `IGame`. -/
+macro "igame_wf" config:Lean.Parser.Tactic.optConfig : tactic =>
+  `(tactic| all_goals solve_by_elim $config
+    [Prod.Lex.left, Prod.Lex.right, PSigma.Lex.left, PSigma.Lex.right,
+    Subposition.of_mem_moves, Subposition.trans, Subtype.prop] )
+
 end Hex
+
 -- SCFunctor ()
 
 
