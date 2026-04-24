@@ -420,8 +420,47 @@ theorem ofSets_inj {A : Type} {s₁ s₂ t₁ t₂ : Set (Hex A)} [Small s₁] [
 /-- option x y : y is composite and x is in the left or right set of the game y. -/
 def option {A : Type} : (Hex.{u} A) → (Hex.{u} A) → Prop := fun x y => ∃ h:y ∈ CompSC.{u} A, x ∈ ⋃ p, (moves.{u} ⟨y,h⟩) p
 
+/-- x is a left option of the game y -/
+def LOption {A : Type} : (Hex.{u} A) → (Hex.{u} A) → Prop := fun x y => ∃ h:y ∈ CompSC.{u} A, x ∈ (moves.{u} ⟨y,h⟩) left
+
+/-- x is a right option of the game y -/
+def ROption {A : Type} : (Hex.{u} A) → (Hex.{u} A) → Prop := fun x y => ∃ h:y ∈ CompSC.{u} A, x ∈ (moves.{u} ⟨y,h⟩) right
+
+/-- x is an option of y iff x is a left or right option of y. -/
+theorem option_iff_lroption {x y : Hex A} : option x y ↔ LOption x y ∨ ROption x y := by 
+  dsimp [option, LOption, ROption]
+  simp only [Set.mem_iUnion, Player.exists]
+  constructor
+  · intro ⟨h,hor⟩
+    cases hor with
+    | inl hl => 
+      left
+      use h
+    | inr hr => 
+      right
+      use h
+  · intro mpr
+    cases mpr with
+    | inl hl => 
+      let ⟨hl,hly⟩ := hl
+      use hl
+      left
+      exact hly
+    | inr hr => 
+      let ⟨hr,hry⟩ := hr
+      use hr
+      right
+      exact hry
+
+
 /-- A proper subposition of a (composite) game y is any game reachable by a nonempty sequence of left and right moves. -/
 def Subposition {A : Type} : (Hex A) -> (Hex A) -> Prop := Relation.TransGen option
+
+theorem optionSubposition {A : Type} {x y : Hex A} : option x y → Subposition x y := λ ho => by 
+  unfold Subposition
+  rw [Relation.transGen_iff]
+  left
+  exact ho
 
 @[aesop unsafe apply 50%]
 theorem Subposition.of_mem_moves {A : Type} {x : Hex A} {y : CompSC A} (h : x ∈ ⋃ p, (moves.{u} y) p) : Subposition x y.1 :=
@@ -677,21 +716,20 @@ theorem WSubposition.of_mem_moves {A : Type} {x : Hex A} {y : CompSC A} (h : x �
     WSubposition x y := (Subposition.of_mem_moves h).wsubposition
 
 
-  
+
+@[elab_as_elim]
 def recOn {motive : Hex A → Sort*} (x : Hex A) (ind : Π x, (Π y : Hex A, Π _ : Subposition y x, motive y) → motive x) : motive x := 
 subposition_wf.recursion (_) (λ g ho => ind g ho )  
 
+@[simp]
 theorem recOn_eq {motive : Hex A → Sort*} (x : Hex A)
     (ind : Π x, (Π y : Hex A, Π _ : Subposition y x, motive y)→ motive x) :
     recOn x ind = ind x (λ y _ => recOn y ind) := 
     subposition_wf.fix_eq ..
 
 
-
-
 end
 end Hex
-
 -- SCFunctor ()
 
 
