@@ -261,7 +261,7 @@ theorem moves_or_mk_atom_id {A : Type} (x : A) : moves_or (mk_atom x) = Sum.inl 
   rw [QPF.Fix.dest_mk] 
 
 -- Special Games
-noncomputable def casesSC {A : Type} {α : (Hex.{u} A) → Prop} (ha : ∀ a : AtomSC A, α a.1) (hc : ∀ g : CompSC A, α g.1) ( x : (Hex.{u} A)): α x := by
+noncomputable def casesSC {A : Type} {α : (Hex A) → Sort*} (ha : ∀ a : AtomSC A, α a.1) (hc : ∀ g : CompSC A, α g.1) ( x : Hex A): α x := by
   cases h : Sum.isRight (moves_or x)
   ·have h1 : (moves_or x).isLeft := Sum.isRight_eq_false.mp h;
    exact (ha ⟨x,h1⟩)
@@ -677,33 +677,18 @@ theorem WSubposition.of_mem_moves {A : Type} {x : Hex A} {y : CompSC A} (h : x �
     WSubposition x y := (Subposition.of_mem_moves h).wsubposition
 
 
-/-- The function "moves?" takes in a value x:Hex A and returns its moves if it has any, otherwise returns a pair of empty sets. -/
-def moves? {A : Type} : Hex A → Player → Set (Hex A) := λ x =>
-  if h:Sum.isRight (moves_or x) then moves ⟨x,h⟩ else (λ _ => ∅)
-
-
-theorem moves?_atom_empty {A : Type} (x : AtomSC A) (p : Player) : moves? x.1 p = ∅ := by
-  have h : Sum.isRight (moves_or x.1) = false := by
-    simp only [Sum.isRight_eq_false]
-    have := x.2 
-    dsimp [AtomSC] at this
-    exact this
-  dsimp only [moves?]
-  simp [h];
   
-theorem temp {A : Type} {x y : Hex A} {h : x∈ CompSC A}: y ∈ moves? x p ↔ (False ∨ y ∈ moves ⟨x,h⟩ p) := by
-  constructor
-  · intro hmp
-    simp at hmp
-    
-    sorry
-  · intro hmpr
-  
-    sorry
-def recOn {motive : Hex A → Sort*} (x : Hex A) (mk : Π x, (Π p : Player, Π y ∈ moves? x p, motive y) → motive x) : motive x := subposition_wf.recursion (_) (_)  
+def recOn {motive : Hex A → Sort*} (x : Hex A) (ind : Π x, (Π y : Hex A, Π _ : Subposition y x, motive y) → motive x) : motive x := 
+subposition_wf.recursion (_) (λ g ho => ind g ho )  
+
+theorem recOn_eq {motive : Hex A → Sort*} (x : Hex A)
+    (ind : Π x, (Π y : Hex A, Π _ : Subposition y x, motive y)→ motive x) :
+    recOn x ind = ind x (λ y _ => recOn y ind) := 
+    subposition_wf.fix_eq ..
 
 
-#check subposition_wf.recursion 
+
+
 end
 end Hex
 
