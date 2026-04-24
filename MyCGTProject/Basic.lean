@@ -1,3 +1,4 @@
+-- This code is based on code by Violeta Hernández Palacios. Her work can be found here: https://github.com/vihdzp/combinatorial-games
 import Mathlib.Data.Fintype.Defs
 import Mathlib.Logic.Small.Set
 import Mathlib.Data.QPF.Univariate.Basic
