@@ -25,26 +25,6 @@ universe u
 -- | game : (Set (badSetGame α)) → (Set (badSetGame α))→ badSetGame α
 
 
-instance small_isEmpty {α : Type (u + 1)} [IsEmpty α] : Small.{u} α := by 
-  let f : α→Unit := λ _ => Unit.unit;
-  infer_instance;
-
-@[reducible]
-noncomputable def nonempty_codomain {α β} (f : α → β) [inst : Nonempty α] : Nonempty β := 
-let x := Classical.choice (inst);
-Nonempty.intro (f x)
-
-@[reducible]
-noncomputable def Nonempty_equiv {α} {β} [inst : Nonempty α] (h : Equiv α β) : Nonempty β := nonempty_codomain (Equiv.toFun h)
-
-@[reducible]
-noncomputable def nonempty_range {α β} (f : α → β) (X : Set α) [inst : Nonempty X] : Nonempty (Set.image f X) := 
-  let b := Classical.choice (inst);
-  have h : Set.image f X (f b) := by 
-    dsimp [Set.image]
-    use b
-    simp only [Subtype.coe_prop, and_self]
-  Nonempty.intro (⟨f b,h⟩)
 
   
 -- now defining the QPF!!!
@@ -797,56 +777,56 @@ noncomputable def sum_AC (g : AtomSC A) (H : Hex.{u} B) : Hex.{u} (A×B) :=
 
 --instance {α β} {X:Set (β)} 
 
-noncomputable def SumGames {A B : Type}  (G:Hex A) (H:Hex B): Hex (A×B) :=
-let valG := @moves_or A G;
-let valH := @moves_or B H;
-let aG_cH := fun (g:A) (h:Hex B) => SumGames (mk_atom g).1 h
-let cG_aH := fun (h:B) (g: Hex A)  => SumGames  g (mk_atom h).1
-let cG_cH := fun (g: Hex A) (h:Hex B) => SumGames g h
+-- noncomputable def SumGames {A B : Type}  (G:Hex A) (H:Hex B): Hex (A×B) :=
+-- let valG := @moves_or A G;
+-- let valH := @moves_or B H;
+-- let aG_cH := fun (g:A) (h:Hex B) => SumGames (mk_atom g).1 h
+-- let cG_aH := fun (h:B) (g: Hex A)  => SumGames  g (mk_atom h).1
+-- let cG_cH := fun (g: Hex A) (h:Hex B) => SumGames g h
 
-match valG, valH with
-| Sum.inl g, Sum.inl h => (mk_atom (g,h)).1
-| Sum.inl g, Sum.inr cH => 
-  have hl := @nonempty_range (Hex B) (Hex (A×B)) (aG_cH g) (cH.val left) (by
-                        have := (cH.property left).right
-                        simp
-                        trivial)
-  have hr := @nonempty_range (Hex B) (Hex (A×B)) (aG_cH g) (cH.val right) (by
-                        have := (cH.property right).right
-                        simp
-                        trivial)
-  let st := (fun p:Player => Set.image (aG_cH g) (cH.val p))
-  @ofSetsSC (_) st 
-    _ 
-    (by 
-    dsimp [st]
-    simp [hl])  
-    _ 
-    (by 
-     dsimp [st]
-     simp [hr])
---  !{L|R} 
-| Sum.inr cG, Sum.inl h => 
-  have hl := @nonempty_range (Hex A) (Hex (A×B)) (cG_aH h) (cG.val left) (by
-                        have := (cG.property left).right
-                        simp
-                        trivial)
-  have hr := @nonempty_range (Hex A) (Hex (A×B)) (cG_aH h) (cG.val right) (by
-                        have := (cG.property right).right
-                        simp
-                        trivial)
-  let st := (fun p:Player => Set.image (cG_aH h) (cG.val p))
-  @ofSetsSC _ st 
-    _ 
-    (by 
-    dsimp [st]
-    simp [hl])  
-    _ 
-    (by 
-     dsimp [st]
-     simp [hr])
-| Sum.inr cG, Sum.inr cH => sorry
-termination_by (G, H) 
+-- match valG, valH with
+-- | Sum.inl g, Sum.inl h => (mk_atom (g,h)).1
+-- | Sum.inl g, Sum.inr cH => 
+--   have hl := @nonempty_range (Hex B) (Hex (A×B)) (aG_cH g) (cH.val left) (by
+--                         have := (cH.property left).right
+--                         simp
+--                         trivial)
+--   have hr := @nonempty_range (Hex B) (Hex (A×B)) (aG_cH g) (cH.val right) (by
+--                         have := (cH.property right).right
+--                         simp
+--                         trivial)
+--   let st := (fun p:Player => Set.image (aG_cH g) (cH.val p))
+--   @ofSetsSC (_) st 
+--     _ 
+--     (by 
+--     dsimp [st]
+--     simp [hl])  
+--     _ 
+--     (by 
+--      dsimp [st]
+--      simp [hr])
+-- --  !{L|R} 
+-- | Sum.inr cG, Sum.inl h => 
+--   have hl := @nonempty_range (Hex A) (Hex (A×B)) (cG_aH h) (cG.val left) (by
+--                         have := (cG.property left).right
+--                         simp
+--                         trivial)
+--   have hr := @nonempty_range (Hex A) (Hex (A×B)) (cG_aH h) (cG.val right) (by
+--                         have := (cG.property right).right
+--                         simp
+--                         trivial)
+--   let st := (fun p:Player => Set.image (cG_aH h) (cG.val p))
+--   @ofSetsSC _ st 
+--     _ 
+--     (by 
+--     dsimp [st]
+--     simp [hl])  
+--     _ 
+--     (by 
+--      dsimp [st]
+--      simp [hr])
+-- | Sum.inr cG, Sum.inr cH => sorry
+-- termination_by (G, H) 
 
 end Hex
 
