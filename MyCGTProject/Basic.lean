@@ -25,11 +25,8 @@ universe u
 -- | game : (Set (badSetGame α)) → (Set (badSetGame α))→ badSetGame α
 
 
-
   
--- now defining the QPF!!!
-
-
+-- some lemmas about stuff.
 
 def sub_temp_left {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype p)) : X→ Set.image Subtype.val X := λ x => ⟨x.val, by 
     let ⟨⟨a,ha⟩,hy⟩ := x;
@@ -70,7 +67,7 @@ def subtype_set_im_equiv {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype
   simp only [sub_temp_right, sub_temp_left, Subtype.coe_eta]
   ⟩
 
-instance subtype_set_small {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype p)) [Small.{u} X] : Small.{u} (Set.image Subtype.val X):= by 
+lemma subtype_set_small {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype p)) [Small.{u} X] : Small.{u} (Set.image Subtype.val X):= by 
   let f := sub_temp_left p X;
   have hg : Function.Injective (sub_temp_right p X) := by
     intro b c hi
@@ -79,6 +76,8 @@ instance subtype_set_small {α : Type (u + 1)} (p : α → Prop) (X : Set (Subty
     rw [hi]
   exact small_of_injective (hg)
 
+
+-- now we begin the QPF work
 -- Dicot Functor
 /-- We no longer need this definition, as SCFunctor was re-defined to subsume this. However, it is nice. DicotFunctor describes the shape of composite games: games with no empty left/right sets of options. -/
 def DicotFunctor (α : Type (u + 1)) : Type (u+1):= 
