@@ -11,11 +11,45 @@ import Mathlib.Logic.Small.Set
 import Mathlib.Logic.Relation
 import Mathlib.Order.SetNotation
 
+import Mathlib.Data.Fintype.Defs
+import Mathlib.Logic.Small.Set
+import Mathlib.Data.QPF.Univariate.Basic
+import Mathlib.Data.Set.Image
+import Mathlib.Data.Set.Basic
+import MyCGTProject.Player
+import Mathlib.Data.Finset.Basic
+import Init.Data.Bool
+import Mathlib.Order.GameAdd
+
+
+set_option linter.style.longLine false
+set_option linter.unnecessarySeqFocus false
+
 universe u
 
 public section
 
-open Set
+instance small_isEmpty {α : Type (u + 1)} [IsEmpty α] : Small.{u} α := by 
+  let f : α→Unit := fun _ => Unit.unit;
+  infer_instance;
+
+@[reducible]
+noncomputable def nonempty_codomain {α β} (f : α → β) [inst : Nonempty α] : Nonempty β := 
+let x := Classical.choice (inst);
+Nonempty.intro (f x)
+
+@[reducible]
+noncomputable def Nonempty_equiv {α} {β} [inst : Nonempty α] (h : Equiv α β) : Nonempty β := nonempty_codomain (Equiv.toFun h)
+
+@[reducible]
+noncomputable def nonempty_range {α β} (f : α → β) (X : Set α) (hx : X.Nonempty) : (Set.image f X).Nonempty := by
+  rcases hx with ⟨b,hb⟩
+  have h : Set.image f X (f b) := by 
+    dsimp [Set.image]
+    use b
+  use (f b) 
+  use b  
+
 
 variable {α : Type*} (r : α → α → Prop) [H : ∀ x, Small.{u} {y // r x y}]
 
@@ -31,14 +65,14 @@ private theorem small_level (x : α) : ∀ n, Small.{u} (level r x n)
       exact small_image ..
     · simp_all
 
-private theorem small_sUnion_level (x : α) : Small.{u} (⋃₀ range (level r x)) := by
+private theorem small_sUnion_level (x : α) : Small.{u} (⋃₀ Set.range (level r x)) := by
   refine @small_sUnion _ _ ?_ ?_
   · exact small_range ..
   · simp [small_level]
 
 instance small_transGen (x : α) : Small.{u} {y // Relation.TransGen r x y} := by
   refine @small_subset _ _ _ (fun y hy ↦ ?_) (small_sUnion_level r x)
-  simp_rw [mem_sUnion, mem_range, exists_exists_eq_and]
+  simp_rw [Set.mem_sUnion, Set.mem_range, exists_exists_eq_and]
   induction hy with
   | single =>
     use 1
