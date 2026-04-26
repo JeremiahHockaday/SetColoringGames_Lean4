@@ -8,6 +8,7 @@ import MyCGTProject.Player
 import MyCGTProject.Small
 import Mathlib.Data.Finset.Basic
 import Init.Data.Bool
+import Mathlib.Order.GameAdd
 
 
 set_option linter.style.lambdaSyntax false
@@ -29,10 +30,23 @@ instance small_isEmpty {α : Type (u + 1)} [IsEmpty α] : Small.{u} α := by
   infer_instance;
 
 @[reducible]
-noncomputable def Nonempty_equiv (α) {β} [inst : Nonempty α] (h : Equiv α β) : Nonempty β := 
-  let x := Classical.choice (inst);
-  let h' := Equiv.toFun h;
-  Nonempty.intro (h' x) 
+noncomputable def nonempty_codomain {α β} (f : α → β) [inst : Nonempty α] : Nonempty β := 
+let x := Classical.choice (inst);
+Nonempty.intro (f x)
+
+@[reducible]
+noncomputable def Nonempty_equiv {α} {β} [inst : Nonempty α] (h : Equiv α β) : Nonempty β := nonempty_codomain (Equiv.toFun h)
+
+@[reducible]
+noncomputable def nonempty_range {α β} (f : α → β) (X : Set α) [inst : Nonempty X] : Nonempty (Set.image f X) := 
+  let b := Classical.choice (inst);
+  have h : Set.image f X (f b) := by 
+    dsimp [Set.image]
+    use b
+    simp only [Subtype.coe_prop, and_self]
+  Nonempty.intro (⟨f b,h⟩)
+
+  
 -- now defining the QPF!!!
 
 
@@ -737,12 +751,102 @@ theorem recOn_eq {motive : Hex A → Sort*} (x : Hex A)
     recOn x ind = ind x (λ y _ => recOn y ind) := 
     subposition_wf.fix_eq ..
 
+
 /-- Discharges proof obligations of the form `⊢ Subposition ..` arising in termination proofs
 of definitions using well-founded recursion on `IGame`. -/
-macro "igame_wf" config:Lean.Parser.Tactic.optConfig : tactic =>
+macro "Hex_wf" config:Lean.Parser.Tactic.optConfig : tactic =>
   `(tactic| all_goals solve_by_elim $config
     [Prod.Lex.left, Prod.Lex.right, PSigma.Lex.left, PSigma.Lex.right,
     Subposition.of_mem_moves, Subposition.trans, Subtype.prop] )
+
+
+noncomputable def sum_AA : AtomSC A→ AtomSC B → Hex (A×B) := λ a b => 
+let a' :=(Sum.getLeft (@moves_or A a) a.2);
+let b' :=(Sum.getLeft (@moves_or B b) b.2);
+(mk_atom (a',b')).val
+
+
+noncomputable def sum_AC (g : AtomSC A) (H : Hex.{u} B) : Hex.{u} (A×B) := 
+  let motive : Hex.{u} B → Sort (u+2) := fun _ => Hex.{u} (A×B)
+  let ind : Π x, (Π y : Hex B, Π _ : Subposition y x, Hex.{u} (A×B)) → Hex.{u} (A×B) := 
+  (λ x IH =>
+    match val : moves_or x with 
+    |Sum.inl b => 
+      have hg : Sum.isLeft (moves_or x) := by
+        rw [val]
+        congr
+      let x': AtomSC B := ⟨x,hg⟩;
+      sum_AA g x'
+    |Sum.inr st => 
+      have hg : Sum.isRight (moves_or x) := by
+        rw [val]
+        congr
+      -- a subtype that bundles the data of being of type Hex B and being a subposition of x.
+      let Ops := {y // y.Subposition x}
+      -- this is the image of the function that adds two smaller games together, over the set of left (resp. right) options.
+      let st' := λ p:Player =>  Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val p))
+      have hls : Small.{u} (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val left))):= by 
+        have l_small := (st.property left).left
+        sorry
+      have hln : Nonempty (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val left))) := sorry
+      have hrs : Small.{u} (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val right))):= sorry
+      have hrn : Nonempty (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val right))) := sorry
+    (@ofSetsSC (A×B) st' _ hln _ hrn).val
+  )
+  sRecOn H ind
+
+--instance {α β} {X:Set (β)} 
+
+noncomputable def SumGames {A B : Type}  (G:Hex A) (H:Hex B): Hex (A×B) :=
+let valG := @moves_or A G;
+let valH := @moves_or B H;
+let aG_cH := fun (g:A) (h:Hex B) => SumGames (mk_atom g).1 h
+let cG_aH := fun (h:B) (g: Hex A)  => SumGames  g (mk_atom h).1
+let cG_cH := fun (g: Hex A) (h:Hex B) => SumGames g h
+
+match valG, valH with
+| Sum.inl g, Sum.inl h => (mk_atom (g,h)).1
+| Sum.inl g, Sum.inr cH => 
+  have hl := @nonempty_range (Hex B) (Hex (A×B)) (aG_cH g) (cH.val left) (by
+                        have := (cH.property left).right
+                        simp
+                        trivial)
+  have hr := @nonempty_range (Hex B) (Hex (A×B)) (aG_cH g) (cH.val right) (by
+                        have := (cH.property right).right
+                        simp
+                        trivial)
+  let st := (fun p:Player => Set.image (aG_cH g) (cH.val p))
+  @ofSetsSC (_) st 
+    _ 
+    (by 
+    dsimp [st]
+    simp [hl])  
+    _ 
+    (by 
+     dsimp [st]
+     simp [hr])
+--  !{L|R} 
+| Sum.inr cG, Sum.inl h => 
+  have hl := @nonempty_range (Hex A) (Hex (A×B)) (cG_aH h) (cG.val left) (by
+                        have := (cG.property left).right
+                        simp
+                        trivial)
+  have hr := @nonempty_range (Hex A) (Hex (A×B)) (cG_aH h) (cG.val right) (by
+                        have := (cG.property right).right
+                        simp
+                        trivial)
+  let st := (fun p:Player => Set.image (cG_aH h) (cG.val p))
+  @ofSetsSC _ st 
+    _ 
+    (by 
+    dsimp [st]
+    simp [hl])  
+    _ 
+    (by 
+     dsimp [st]
+     simp [hr])
+| Sum.inr cG, Sum.inr cH => sorry
+termination_by (G, H) 
 
 end Hex
 
