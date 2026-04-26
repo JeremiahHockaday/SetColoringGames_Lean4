@@ -1,15 +1,13 @@
 -- This code is based on code by Violeta Hernández Palacios. Her work can be found here: https://github.com/vihdzp/combinatorial-games
 import Mathlib.Data.Fintype.Defs
 import Mathlib.Logic.Small.Set
-import Mathlib.Data.QPF.Univariate.Basic
 import Mathlib.Data.Set.Image
 import Mathlib.Data.Set.Basic
-import MyCGTProject.Player
-import MyCGTProject.Small
+import MyCGTProject.SmallNonempty
 import Mathlib.Data.Finset.Basic
 import Init.Data.Bool
 import Mathlib.Order.GameAdd
-
+import MyCGTProject.HexFunctor
 
 set_option linter.style.lambdaSyntax false
 set_option linter.style.longLine false
@@ -17,6 +15,7 @@ set_option linter.unnecessarySeqFocus false
 --set_option trace.Meta.synthInstance true
 
 universe u
+
 
 
 -- The following definition does not work, as it is non-positive (and lean tells us this). 
@@ -28,187 +27,9 @@ universe u
   
 -- some lemmas about stuff.
 
-def sub_temp_left {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype p)) : X→ Set.image Subtype.val X := λ x => ⟨x.val, by 
-    let ⟨⟨a,ha⟩,hy⟩ := x;
-    simp only [Set.mem_image, Subtype.exists, exists_and_right, exists_eq_right]
-    constructor
-    · exact hy
-    · exact ha 
-    ⟩
-
-def sub_temp_right {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype p)) : Set.image Subtype.val X → X := λ x => ⟨⟨x.val, by 
-    let ⟨a,⟨⟨b1,b2⟩,⟨hb1,hb2⟩⟩⟩ := x;
-    simp only at hb2
-    simp only [hb2] at b2
-    simp only
-    exact b2⟩, by
-      let ⟨a,⟨⟨b1,b2⟩,⟨hb1,hb2⟩⟩⟩ := x;
-      simp only at hb2
-      have hn : p a := by 
-        rw [hb2] at b2
-        exact b2
-      have hx : Subtype.mk b1 b2 = ⟨a,hn⟩:= by
-        ext
-        simp only
-        exact hb2;
-      simp [← hx, hb1]⟩
-
-def subtype_set_im_equiv {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype p)) : Equiv X (Set.image Subtype.val X) := 
-  ⟨sub_temp_left p X 
-  ,
-  sub_temp_right p X
-  , 
-  by
-  intro x
-  simp only [sub_temp_right,sub_temp_left]
-  , 
-  by
-  intro x
-  simp only [sub_temp_right, sub_temp_left, Subtype.coe_eta]
-  ⟩
-
-lemma subtype_set_small {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype p)) [Small.{u} X] : Small.{u} (Set.image Subtype.val X):= by 
-  let f := sub_temp_left p X;
-  have hg : Function.Injective (sub_temp_right p X) := by
-    intro b c hi
-    simp only [sub_temp_right,Subtype.mk.injEq] at hi
-    ext 
-    rw [hi]
-  exact small_of_injective (hg)
 
 
 -- now we begin the QPF work
--- Dicot Functor
-/-- We no longer need this definition, as SCFunctor was re-defined to subsume this. However, it is nice. DicotFunctor describes the shape of composite games: games with no empty left/right sets of options. -/
-def DicotFunctor (α : Type (u + 1)) : Type (u+1):= 
-{s : (Player→ Set α) | ∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)}
-
-def DicotFunctor.map : {α : Type (u + 1)} → {β : Type (u+1)} → 
-(α → β) → DicotFunctor α → DicotFunctor β := 
-fun {α} {β} f s => ⟨(f '' s.1 ·), fun p =>  And.intro 
-(have h1:=(s.property p).left; by infer_instance) 
-(have h2 := (s.property p).right;  @Set.Nonempty.image α β (f) (s.1 p) h2 )⟩ 
-
-instance : Functor DicotFunctor where
-map:= DicotFunctor.map
-
-
-/-- Given ( A : Type), the functor "SCFunctor A" describes the shape of set coloring games. a set coloring game is either atomic (meaning a single element of a poset) or composite (a pair of non-empty sets of set coloring games). -/
-def SCFunctor (A : Type) (α : Type (u + 1)) : Type ((u + 1)) :=
- A ⊕ {s : (Player→ Set α) | ∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)}
-
-
-/-- Given (A : Type), "SCFunctor A" affects morphisms as follows: it does not change the elements of A, and it changes α to β componentwise. -/
-def SCFunctor.map : (A : Type) → {α : Type (u + 1)} → {β : Type (u+1)} → 
-(α → β) → SCFunctor A α → SCFunctor A β := λ A {α} {β} f s => (@Sum.map.{0,0,(u + 1),(u + 1)} A A ({s : (Player→ Set α) | ∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)}) ({s : (Player→ Set β) | ∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)}) 
---
-(@id A) (fun s => ⟨(f '' s.1 ·), fun p =>  And.intro 
-(have h1:=(s.property p).left; by infer_instance) 
-(have h2 := (s.property p).right;  @Set.Nonempty.image α β (f) (s.1 p) h2 )⟩)) s
-
-
-instance Funct_SCFunctor : Functor (SCFunctor A) where 
-map f := SCFunctor.map A f
-
-/-- f<$> s is a notation that lean prefers, so we use this to differentiate. -/
-theorem map_def {A α β} (f : α → β) (s : SCFunctor A α) :
-    f <$> s = SCFunctor.map A f s := rfl 
-
-
-
-theorem property_subsumption {A : Type} {α : Type (u + 1)} {q : α → Prop}
-(st : Player → Set (Subtype q))
-(hst : st ∈ {s: Player → Set (Subtype q)|∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)})
-(h : (λ p => Set.image Subtype.val (st p)) ∈ {s: Player→Set α| ∀ p, (Small.{u} (s p) ∧ (s p).Nonempty)}) : 
-SCFunctor.map.{u} A Subtype.val (Sum.inr (⟨st,hst⟩))  = Sum.inr (⟨(λ p => Set.image Subtype.val (st p)),h⟩)
-:= by congr;
-
-
------------------------------------------------------------------------
-
-
-def SCFunctor.P (A : Type) : PFunctor.{u + 1, u + 1} where
-  A := A ⊕ (Σ (S : Player → Type u), S .left × S .right)
-  B := fun
-    | .inr ⟨S, _⟩ => ULift.{u + 1} (S .left ⊕ S .right)
-    | .inl _ => ULift.{u + 1} Empty
-
-def SCFunctor.absF {A : Type} {α : Type (u + 1)} :
-    (SCFunctor.P.{u} A).Obj α → SCFunctor.{u} A α := fun ⟨a, f⟩ =>
-  match a with
-  | .inr ⟨S, sL, sR⟩ =>
-    Sum.inr ⟨fun p => 
-      match p with
-      | .left => Set.range (f∘ULift.up∘Sum.inl)
-      | .right => Set.range (f∘ULift.up∘Sum.inr),
-      fun p => by
-        constructor
-        · match p with
-        | .left => infer_instance | .right => infer_instance
-        · match p with
-        | .left => exact ⟨_, ⟨sL, rfl⟩⟩ | .right => exact ⟨_, ⟨sR, rfl⟩⟩
-    ⟩
-  | .inl a => Sum.inl a
-
--- def SCFunctor.qpfAbs {A : Type} {α : Type (u + 1)} :
---     (SCFunctor.P.{u} A).Obj α → SCFunctor.{u} A α :=
---   fun ⟨shape, f⟩ => match shape with
---     | Sum.inl ⟨S, hne⟩ => Sum.inl ⟨fun p => Set.range (fun s : S p => f ⟨p, s⟩),
---         fun p => ⟨@small_range.{u} (S p) α (fun s => f ⟨p, s⟩) inferInstance,
---                   ⟨f ⟨p, (hne p).some⟩, Set.mem_range_self _⟩⟩⟩
---     | Sum.inr a => Sum.inr a
-
-noncomputable def SCFunctor.reprF {A : Type} {α : Type (u + 1)} :
-    SCFunctor A α → (SCFunctor.P A).Obj α := fun
-  | .inl a => ⟨.inl a, fun e => (e.down).elim⟩
-  | .inr ⟨s, hs⟩ =>
-    have : Small.{u} ↥(s .left) := (hs .left).1
-    have : Small.{u} ↥(s .right) := (hs .right).1
-    have hNL := (hs .left).2
-    have hNR := (hs .right).2
-    let eL := equivShrink.{u} (s .left) 
-    let eR := equivShrink.{u} (s .right)
-    ⟨.inr ⟨fun p => match p with
-      | .left => Shrink.{u} (s .left) | .right => Shrink.{u} (s .right),
-      eL ⟨hNL.some, hNL.some_mem⟩, eR ⟨hNR.some, hNR.some_mem⟩⟩,
-    fun ⟨lr⟩ => match lr with
-      | .inl l => (eL.symm l).val | .inr r => (eR.symm r).val
-    ⟩
-
-theorem SCFunctor.abs_repr_eq {A : Type} {α : Type (u + 1)}
-    (x : SCFunctor.{u} A α) :
-    SCFunctor.absF (SCFunctor.reprF x) = x := by
-  cases x <;> simp only [absF, reprF]; 
-  apply congr_arg Sum.inr ( Subtype.ext _ );
-  ext p x; cases p <;> simp only [ Set.mem_range ] ;
-  · constructor;
-    · aesop;
-    · exact fun hx => ⟨ _, Subtype.ext_iff.mp ( Equiv.apply_symm_apply _ ⟨ x, hx ⟩ ) ⟩;
-  · constructor;
-    · aesop;
-    · exact fun hx => ⟨ _, Subtype.ext_iff.mp ( Equiv.apply_symm_apply _ ⟨ x, hx ⟩ ) ⟩
-
-theorem SCFunctor.abs_map_eq {A : Type} [Small.{u + 1} A] {α β : Type (u + 1)}
-    (f : α → β) (p : (SCFunctor.P.{u} A).Obj α) :
-    SCFunctor.absF ((SCFunctor.P.{u} A).map f p) =
-    @Functor.map _ (Funct_SCFunctor ) _ _ f (SCFunctor.absF p) := by
-  rcases p with ⟨ a, f ⟩;
-  unfold absF;
-  rcases a with ( a | ⟨ S, sL, sR ⟩ );
-  · rfl
-  · simp only [ PFunctor.map ];
-    congr;
-    ext p; cases p <;> simp [ Set.range ] ;
-
-
-noncomputable instance QPF_SCFunctor (A : Type) :
-    QPF (SCFunctor A) where
-  toFunctor := Funct_SCFunctor 
-  P := SCFunctor.P A
-  abs := SCFunctor.absF
-  repr := SCFunctor.reprF
-  abs_repr := SCFunctor.abs_repr_eq
-  abs_map := SCFunctor.abs_map_eq
 
 
 def Hex (A : Type) : Type (u + 1) := @QPF.Fix (SCFunctor A) (QPF_SCFunctor A)
@@ -401,6 +222,7 @@ theorem ofSets_inj' {A : Type} {st₁ st₂ : Player → Set (Hex A)}
     !{st₁} =!{st₂}↔ st₁ = st₂ := by
     simp_rw [Hex.ext_iff, moves_ofSets, funext_iff]
 
+@[simp]
 theorem ofSets_inj {A : Type} {s₁ s₂ t₁ t₂ : Set (Hex A)} [Small s₁] [Small s₂] [Small t₁] [Small t₂] [Nonempty s₁] [Nonempty s₂] [Nonempty t₁] [Nonempty t₂] :
     !{s₁ | t₁} = !{s₂ | t₂} ↔ s₁ = s₂ ∧ t₁ = t₂ := by
   simp
@@ -766,6 +588,8 @@ noncomputable def sum_AC (g : AtomSC A) (H : Hex.{u} B) : Hex.{u} (A×B) :=
       let st' := λ p:Player =>  Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val p))
       have hls : Small.{u} (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val left))):= by 
         have l_small := (st.property left).left
+        
+        
         sorry
       have hln : Nonempty (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val left))) := sorry
       have hrs : Small.{u} (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val right))):= sorry
