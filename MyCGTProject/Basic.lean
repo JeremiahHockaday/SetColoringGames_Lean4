@@ -561,42 +561,52 @@ macro "Hex_wf" config:Lean.Parser.Tactic.optConfig : tactic =>
     Subposition.of_mem_moves, Subposition.trans, Subtype.prop] )
 
 
-noncomputable def sum_AA : AtomSC A→ AtomSC B → Hex (A×B) := λ a b => 
-let a' :=(Sum.getLeft (@moves_or A a) a.2);
-let b' :=(Sum.getLeft (@moves_or B b) b.2);
-(mk_atom (a',b')).val
-
-
 noncomputable def sum_AC (g : AtomSC A) (H : Hex.{u} B) : Hex.{u} (A×B) := 
   let motive : Hex.{u} B → Sort (u+2) := fun _ => Hex.{u} (A×B)
-  let ind : Π x, (Π y : Hex B, Π _ : Subposition y x, Hex.{u} (A×B)) → Hex.{u} (A×B) := 
+  let ind : Π x, (Π y : Hex B, Π _ : option y x, Hex.{u} (A×B)) → Hex.{u} (A×B) := 
   (λ x IH =>
     match val : moves_or x with 
     |Sum.inl b => 
-      have hg : Sum.isLeft (moves_or x) := by
-        rw [val]
-        congr
-      let x': AtomSC B := ⟨x,hg⟩;
-      sum_AA g x'
+      let g' :=(Sum.getLeft (@moves_or A g) g.2);
+        (mk_atom (g',b)).val 
     |Sum.inr st => 
       have hg : Sum.isRight (moves_or x) := by
         rw [val]
         congr
       -- a subtype that bundles the data of being of type Hex B and being a subposition of x.
-      let Ops := {y // y.Subposition x}
+      let Ops := {y // y.option x}
       -- this is the image of the function that adds two smaller games together, over the set of left (resp. right) options.
+      have OpsSmall : Small.{u} Ops := small_setOf_options x
+      let Ops' : Player → Set (Ops) := fun p => (λ y: Ops => y.1 ∈ (st.val p))
+      have ops_small : Π p:Player, Small.{u} (Ops' p) := by
+        intro p
+        infer_instance
+      have st_nonempty : Π p:Player, Nonempty (st.val p) := fun p => by
+        have :=((st.property p).right)
+        simp 
+        let ⟨a,b⟩ := this
+        use a
+      have ops_nonempty : Π p:Player, Nonempty (Ops' p):= fun p => by
+        let a := Classical.choice (st_nonempty p)
+        simp
+        have ha : option a x := by
+          
+          _
+          
+        _
+        
       let st' := λ p:Player =>  Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val p))
       have hls : Small.{u} (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val left))):= by 
-        have l_small := (st.property left).left
+        exact small_image _ (Ops' left) 
+      have hln : Nonempty (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val left))) := 
         
-        
-        sorry
-      have hln : Nonempty (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val left))) := sorry
-      have hrs : Small.{u} (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val right))):= sorry
+        _
+      have hrs : Small.{u} (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val right))):= by        
+        exact small_image _ (Ops' right) 
       have hrn : Nonempty (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val right))) := sorry
     (@ofSetsSC (A×B) st' _ hln _ hrn).val
   )
-  sRecOn H ind
+  recOn H ind
 
 --instance {α β} {X:Set (β)} 
 
