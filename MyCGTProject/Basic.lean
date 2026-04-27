@@ -541,44 +541,49 @@ macro "Primordial_wf" config:Lean.Parser.Tactic.optConfig : tactic =>
     Subposition.of_mem_moves, Subposition.trans, Subtype.prop] )
 
 
--- noncomputable def sum_AA : Atom A→ Atom B → Primordial (A×B) := λ a b => 
--- let a' :=(Sum.getLeft (@moves_or A a) a.2);
--- let b' :=(Sum.getLeft (@moves_or B b) b.2);
--- (mk_atom (a',b')).val
+noncomputable def sum_AA : Atom A→ Atom B → Primordial (A×B) := λ a b => 
+let a' :=(Sum.getLeft (@moves_or A a) a.2);
+let b' :=(Sum.getLeft (@moves_or B b) b.2);
+(mk_atom (a',b')).val
 
 
--- noncomputable def sum_AC (g : Atom A) (H : Primordial.{u} B) : Primordial.{u} (A×B) := 
---   let motive : Primordial.{u} B → Sort (u+2) := fun _ => Primordial.{u} (A×B)
---   let ind : Π x, (Π y : Primordial B, Π _ : Subposition y x, Primordial.{u} (A×B)) → Primordial.{u} (A×B) := 
---   (λ x IH =>
---     match val : moves_or x with 
---     |Sum.inl b => 
---       have hg : Sum.isLeft (moves_or x) := by
---         rw [val]
---         congr
---       let x': Atom B := ⟨x,hg⟩;
---       sum_AA g x'
---     |Sum.inr st => 
---       have hg : Sum.isRight (moves_or x) := by
---         rw [val]
---         congr
---       -- a subtype that bundles the data of being of type Primordial B and being a subposition of x.
---       let Ops := {y // y.Subposition x}
---       -- this is the image of the function that adds two smaller games together, over the set of left (resp. right) options.
---       let st' := λ p:Player =>  Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val p))
---       have hls : Small.{u} (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val left))):= by 
---         have l_small := (st.property left).left
-        
-        
---         sorry
---       have hln : Nonempty (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val left))) := sorry
---       have hrs : Small.{u} (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val right))):= sorry
---       have hrn : Nonempty (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val right))) := sorry
---     (@ofSets (A×B) st' _ hln _ hrn).val
---   )
---   sRecOn H ind
+noncomputable def sum_AC (g : Atom A) (H : Primordial.{u} B) : Primordial.{u} (A×B) := 
+  let motive : Primordial.{u} B → Sort (u+2) := fun _ => Primordial.{u} (A×B)
+  let ind : Π x, (Π y : Primordial B, Π _ : Subposition y x, Primordial.{u} (A×B)) → Primordial.{u} (A×B) := 
+  (λ x IH =>
+    match val : moves_or x with 
+    |Sum.inl b => 
+      have hg : Sum.isLeft (moves_or x) := by
+        rw [val]
+        congr
+      let x': Atom B := ⟨x,hg⟩;
+      sum_AA g x'
+    |Sum.inr st => 
+      have hg : Sum.isRight (moves_or x) := by
+        rw [val]
+        congr
+      -- a subtype that bundles the data of being of type Primordial B and being a subposition of x.
+      let Ops := {y // y.Subposition x}
+      -- this is the image of the function that adds two smaller games together, over the set of left (resp. right) options.
+      have smallOps : Small.{u} Ops := small_setOf_subposition x
+      let st' := λ p:Player =>  Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val p))
+      have hl : Small.{u} (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val left))):= by 
+        have l_small := (st.property left)
+        let X : Set (Ops) := (λ y: Ops => y.1 ∈ (st.val left))
+        have : Small.{u} X := by infer_instance
+        infer_instance
+      have hr : Small.{u} (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val right))):= by
+        have l_small := (st.property right)
+        let X : Set (Ops) := (λ y: Ops => y.1 ∈ (st.val right))
+        have : Small.{u} X := by infer_instance
+        infer_instance
+    (@ofSets (A×B) st' hl hr).val
+  )
+  sRecOn H ind
 
--- --instance {α β} {X:Set (β)} 
+#check small_image
+
+
 
 -- -- noncomputable def SumGames {A B : Type}  (G:Primordial A) (H:Primordial B): Primordial (A×B) :=
 -- -- let valG := @moves_or A G;
