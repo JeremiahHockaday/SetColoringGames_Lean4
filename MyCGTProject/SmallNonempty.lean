@@ -10,15 +10,8 @@ public import Mathlib.Logic.Small.Set
 
 import Mathlib.Logic.Relation
 import Mathlib.Order.SetNotation
-
-import Mathlib.Data.Fintype.Defs
-import Mathlib.Data.QPF.Univariate.Basic
 import Mathlib.Data.Set.Image
 import Mathlib.Data.Set.Basic
-import MyCGTProject.Player
-import Mathlib.Data.Finset.Basic
-import Init.Data.Bool
-import Mathlib.Order.GameAdd
 
 
 set_option linter.style.longLine false
@@ -97,9 +90,6 @@ lemma subtype_set_small {α : Type (u + 1)} (p : α → Prop) (X : Set (Subtype 
     ext 
     rw [hi]
   exact small_of_injective (hg)
-
-
-
 
 -------------------
 variable {α : Type*} (r : α → α → Prop) [H : ∀ x, Small.{u} {y // r x y}]
