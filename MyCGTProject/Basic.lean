@@ -541,10 +541,10 @@ macro "Primordial_wf" config:Lean.Parser.Tactic.optConfig : tactic =>
     Subposition.of_mem_moves, Subposition.trans, Subtype.prop] )
 
 
-noncomputable def sum_AA : Atom A→ Atom B → Primordial (A×B) := λ a b => 
+noncomputable def sum_AA : Atom A→ Atom B → Atom (A×B) := λ a b => 
 let a' :=(Sum.getLeft (@moves_or A a) a.2);
 let b' :=(Sum.getLeft (@moves_or B b) b.2);
-(mk_atom (a',b')).val
+(mk_atom (a',b'))
 
 
 noncomputable def sum_AC (g : Atom A) (H : Primordial.{u} B) : Primordial.{u} (A×B) := 
@@ -557,7 +557,7 @@ noncomputable def sum_AC (g : Atom A) (H : Primordial.{u} B) : Primordial.{u} (A
         rw [val]
         congr
       let x': Atom B := ⟨x,hg⟩;
-      sum_AA g x'
+      (sum_AA g x').val
     |Sum.inr st => 
       have hg : Sum.isRight (moves_or x) := by
         rw [val]
@@ -566,7 +566,9 @@ noncomputable def sum_AC (g : Atom A) (H : Primordial.{u} B) : Primordial.{u} (A
       let Ops := {y // y.Subposition x}
       -- this is the image of the function that adds two smaller games together, over the set of left (resp. right) options.
       have smallOps : Small.{u} Ops := small_setOf_subposition x
+      -- st' is the sum of these two games, defined inductively.
       let st' := λ p:Player =>  Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val p))
+      --- proofs of smallness
       have hl : Small.{u} (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val left))):= by 
         have l_small := (st.property left)
         let X : Set (Ops) := (λ y: Ops => y.1 ∈ (st.val left))
@@ -577,6 +579,7 @@ noncomputable def sum_AC (g : Atom A) (H : Primordial.{u} B) : Primordial.{u} (A
         let X : Set (Ops) := (λ y: Ops => y.1 ∈ (st.val right))
         have : Small.{u} X := by infer_instance
         infer_instance
+    -- This is the value that should be returned
     (@ofSets (A×B) st' hl hr).val
   )
   sRecOn H ind
@@ -584,6 +587,28 @@ noncomputable def sum_AC (g : Atom A) (H : Primordial.{u} B) : Primordial.{u} (A
 #check small_image
 
 
+instance ProductAssoc {A B C : Type} : ((A×B)×C)≃(A×(B×C)):= 
+  let f :((A×B)×C)→(A×(B×C)) := fun ((x1,x2),x3) => (x1,(x2,x3))
+  let g :(A×(B×C))→((A×B)×C) := fun (x1,(x2,x3)) => ((x1,x2),x3)
+  have hfg : f∘ g = id := by
+    congr
+  have hgf :  g∘f = id := by
+    congr 
+  ⟨f, g, 
+    by
+      unfold Function.LeftInverse
+      apply funext_iff.mp at hgf
+      simp only[Function.comp_apply] at hgf
+      exact hgf,
+     by
+      unfold Function.RightInverse
+      apply funext_iff.mp at hfg
+      simp only[Function.comp_apply] at hfg
+      exact hfg⟩
+
+def PrimordialAssoc {A B C : Type} :  Primordial ((A×B)×C) → Primordial (A×(B×C)):= sorry
+
+example {A:Type} {g :Atom A} {h : Atom B} {K : Primordial C} : (sum_AC g (sum_AC h K)) = sum_AC (sum_AA g h) K := sorry
 
 -- -- noncomputable def SumGames {A B : Type}  (G:Primordial A) (H:Primordial B): Primordial (A×B) :=
 -- -- let valG := @moves_or A G;
