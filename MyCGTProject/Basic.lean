@@ -521,7 +521,8 @@ theorem sRecOn_eq {motive : Primordial A → Sort*} (x : Primordial A)
     sRecOn x ind = ind x (λ y _ => sRecOn y ind) := 
     subposition_wf.fix_eq ..
 
-
+/-- How to use:
+--- To define a function/theorem, define something with the same type as ind. -/
 @[elab_as_elim]
 noncomputable def recOn {motive : Primordial A → Sort*} (x : Primordial A) (ind : Π x, (Π y : Primordial A, Π _ : option y x, motive y) → motive x) : motive x := 
 subposition_wf.recursion (x) (fun g ho => ind g (fun _ h => (ho _ (optionSubposition h))))
@@ -541,28 +542,16 @@ macro "Primordial_wf" config:Lean.Parser.Tactic.optConfig : tactic =>
     Subposition.of_mem_moves, Subposition.trans, Subtype.prop] )
 
 
-noncomputable def sum_AA : Atom A→ Atom B → Atom (A×B) := λ a b => 
-let a' :=(Sum.getLeft (@moves_or A a) a.2);
-let b' :=(Sum.getLeft (@moves_or B b) b.2);
-(mk_atom (a',b'))
 
-
-noncomputable def sum_AC (g : Atom A) (H : Primordial.{u} B) : Primordial.{u} (A×B) := 
-  let motive : Primordial.{u} B → Sort (u+2) := fun _ => Primordial.{u} (A×B)
-  let ind : Π x, (Π y : Primordial B, Π _ : Subposition y x, Primordial.{u} (A×B)) → Primordial.{u} (A×B) := 
-  (λ x IH =>
-    match val : moves_or x with 
-    |Sum.inl b => 
-      have hg : Sum.isLeft (moves_or x) := by
-        rw [val]
-        congr
-      let x': Atom B := ⟨x,hg⟩;
-      (sum_AA g x').val
-    |Sum.inr st => 
-      have hg : Sum.isRight (moves_or x) := by
-        rw [val]
-        congr
-      -- a subtype that bundles the data of being of type Primordial B and being a subposition of x.
+noncomputable def MAP {A B : Type} (f : A → B) : Primordial.{u} A → Primordial.{u} B := 
+  let motive : Primordial.{u} A -> Sort (u+2) := λ _ => Primordial.{u} B
+  let ind : Π x, (Π y : Primordial A, Π _ : Subposition y x, Primordial.{u} B) → Primordial.{u} B :=
+    (λ x IH =>
+    match val : @moves_or A x with
+    | Sum.inl a => 
+      mk_atom (f a)
+    | Sum.inr st => 
+      
       let Ops := {y // y.Subposition x}
       -- this is the image of the function that adds two smaller games together, over the set of left (resp. right) options.
       have smallOps : Small.{u} Ops := small_setOf_subposition x
@@ -580,13 +569,23 @@ noncomputable def sum_AC (g : Atom A) (H : Primordial.{u} B) : Primordial.{u} (A
         have : Small.{u} X := by infer_instance
         infer_instance
     -- This is the value that should be returned
-    (@ofSets (A×B) st' hl hr).val
-  )
-  sRecOn H ind
-
-#check small_image
+    (@ofSets B st' hl hr).val
+    )
+  (λ G => sRecOn G ind)
 
 
+noncomputable def sum_AA : Atom A→ Atom B → Atom (A×B) := λ a b => 
+let a' :=(Sum.getLeft (@moves_or A a) a.2);
+let b' :=(Sum.getLeft (@moves_or B b) b.2);
+(mk_atom (a',b'))
+
+
+noncomputable def sum_AC (g : Atom A) (H : Primordial.{u} B) : Primordial.{u} (A×B) := 
+  let g' :A := (Sum.getLeft (@moves_or A g) g.2)
+  let f := (λ b:B => (g',b))
+  MAP f H
+  
+  
 instance ProductAssoc {A B C : Type} : ((A×B)×C)≃(A×(B×C)):= 
   let f :((A×B)×C)→(A×(B×C)) := fun ((x1,x2),x3) => (x1,(x2,x3))
   let g :(A×(B×C))→((A×B)×C) := fun (x1,(x2,x3)) => ((x1,x2),x3)
@@ -606,60 +605,13 @@ instance ProductAssoc {A B C : Type} : ((A×B)×C)≃(A×(B×C)):=
       simp only[Function.comp_apply] at hfg
       exact hfg⟩
 
-def PrimordialAssoc {A B C : Type} :  Primordial ((A×B)×C) → Primordial (A×(B×C)):= sorry
 
-example {A:Type} {g :Atom A} {h : Atom B} {K : Primordial C} : (sum_AC g (sum_AC h K)) = sum_AC (sum_AA g h) K := sorry
+    
 
--- -- noncomputable def SumGames {A B : Type}  (G:Primordial A) (H:Primordial B): Primordial (A×B) :=
--- -- let valG := @moves_or A G;
--- -- let valH := @moves_or B H;
--- -- let aG_cH := fun (g:A) (h:Primordial B) => SumGames (mk_atom g).1 h
--- -- let cG_aH := fun (h:B) (g: Primordial A)  => SumGames  g (mk_atom h).1
--- -- let cG_cH := fun (g: Primordial A) (h:Primordial B) => SumGames g h
 
--- -- match valG, valH with
--- -- | Sum.inl g, Sum.inl h => (mk_atom (g,h)).1
--- -- | Sum.inl g, Sum.inr cH => 
--- --   have hl := @nonempty_range (Primordial B) (Primordial (A×B)) (aG_cH g) (cH.val left) (by
--- --                         have := (cH.property left).right
--- --                         simp
--- --                         trivial)
--- --   have hr := @nonempty_range (Primordial B) (Primordial (A×B)) (aG_cH g) (cH.val right) (by
--- --                         have := (cH.property right).right
--- --                         simp
--- --                         trivial)
--- --   let st := (fun p:Player => Set.image (aG_cH g) (cH.val p))
--- --   @ofSets (_) st 
--- --     _ 
--- --     (by 
--- --     dsimp [st]
--- --     simp [hl])  
--- --     _ 
--- --     (by 
--- --      dsimp [st]
--- --      simp [hr])
--- -- --  !{L|R} 
--- -- | Sum.inr cG, Sum.inl h => 
--- --   have hl := @nonempty_range (Primordial A) (Primordial (A×B)) (cG_aH h) (cG.val left) (by
--- --                         have := (cG.property left).right
--- --                         simp
--- --                         trivial)
--- --   have hr := @nonempty_range (Primordial A) (Primordial (A×B)) (cG_aH h) (cG.val right) (by
--- --                         have := (cG.property right).right
--- --                         simp
--- --                         trivial)
--- --   let st := (fun p:Player => Set.image (cG_aH h) (cG.val p))
--- --   @ofSets _ st 
--- --     _ 
--- --     (by 
--- --     dsimp [st]
--- --     simp [hl])  
--- --     _ 
--- --     (by 
--- --      dsimp [st]
--- --      simp [hr])
--- -- | Sum.inr cG, Sum.inr cH => sorry
--- -- termination_by (G, H) 
+
+
+
 
 end Primordial
 
