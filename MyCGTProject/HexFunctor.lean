@@ -3,14 +3,10 @@ public import Mathlib.Data.Set.Defs
 public import MyCGTProject.Player
 public import Mathlib.Data.QPF.Univariate.Basic
 
-import Mathlib.Data.Fintype.Defs
 import Mathlib.Logic.Small.Set
 import Mathlib.Data.Set.Image
 import Mathlib.Data.Set.Basic
 import MyCGTProject.SmallNonempty
-import Mathlib.Data.Finset.Basic
-import Init.Data.Bool
-import Mathlib.Order.GameAdd
 
 set_option linter.style.lambdaSyntax false
 set_option linter.style.longLine false
