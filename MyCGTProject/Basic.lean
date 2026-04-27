@@ -370,175 +370,175 @@ theorem subposition_wf {A : Type} : @WellFounded (Primordial A) Subposition := b
   refine ⟨fun x => Acc.transGen ?x⟩
   exact acc_all x
 
--- instance {A : Type} : IsWellFounded (Primordial A) Subposition := ⟨subposition_wf⟩
--- instance {A : Type} : WellFoundedRelation (Primordial A) := ⟨Subposition, instIsWellFoundedSubposition.wf⟩
+instance {A : Type} : IsWellFounded (Primordial A) Subposition := ⟨subposition_wf⟩
+instance {A : Type} : WellFoundedRelation (Primordial A) := ⟨Subposition, instIsWellFoundedSubposition.wf⟩
 
--- theorem Subposition.irrefl {A : Type} (x : Primordial A) : ¬Subposition x x := _root_.irrefl x
+theorem Subposition.irrefl {A : Type} (x : Primordial A) : ¬Subposition x x := _root_.irrefl x
 
--- theorem option.irrefl {A : Type} (x : Primordial A) : ¬option x x := by 
---   apply @casesSC A (λ x => ¬x.option x)
---   · intro a 
---     unfold option
---     simp only [Set.mem_iUnion, not_exists]
---     intro ha
---     have h' := Comp_nAtom_iff.mp ha
---     have h'' := a.2
---     contradiction
---   · intro g ho 
---     have h' := Subposition.irrefl g.1
---     dsimp only [Subposition] at h'
---     rw [Relation.transGen_iff] at h'
---     simp only [not_or, not_exists, not_and] at h'
---     obtain ⟨y,z⟩ := h'
---     contradiction
+theorem option.irrefl {A : Type} (x : Primordial A) : ¬option x x := by 
+  apply @casesSC A (λ x => ¬x.option x)
+  · intro a 
+    unfold option
+    simp only [Set.mem_iUnion, not_exists]
+    intro ha
+    have h' := Comp_nAtom_iff.mp ha
+    have h'' := a.2
+    contradiction
+  · intro g ho 
+    have h' := Subposition.irrefl g.1
+    dsimp only [Subposition] at h'
+    rw [Relation.transGen_iff] at h'
+    simp only [not_or, not_exists, not_and] at h'
+    obtain ⟨y,z⟩ := h'
+    contradiction
 
--- theorem self_notMem_moves (A : Type) (p : Player) (x : Comp A) : x.val ∉ moves x p :=  
---   fun hx => Subposition.irrefl x.1 (.of_mem_moves (by 
---   simp only [Set.mem_iUnion]
---   use p))
+theorem self_notMem_moves (A : Type) (p : Player) (x : Comp A) : x.val ∉ moves x p :=  
+  fun hx => Subposition.irrefl x.1 (.of_mem_moves (by 
+  simp only [Set.mem_iUnion]
+  use p))
 
--- /-- `WSubposition x y` is the non-strict version of `Subposition x y`. -/
--- @[expose]
--- def WSubposition {A : Type} (x y : Primordial A) : Prop := x = y ∨ Subposition x y
+/-- `WSubposition x y` is the non-strict version of `Subposition x y`. -/
+@[expose]
+def WSubposition {A : Type} (x y : Primordial A) : Prop := x = y ∨ Subposition x y
 
--- theorem subposition_iff_exists {A : Type} {x y : Primordial A} : Subposition x y ↔
---    ∃ h : (y∈ Comp A),∃ p:Player, ∃ z ∈  moves (⟨y,h⟩) p, WSubposition x z := by
---    unfold WSubposition Subposition
---    rw [Relation.transGen_iff]
---    dsimp only [option]
---    simp_rw [Set.mem_iUnion]   
---    constructor
---    · intro hmp
---      cases hmp with
---      | inl hl => 
---        let ⟨a,⟨i,hi⟩⟩ := hl
---        use a,i,x
---        constructor
---        · exact hi
---        · simp only [true_or]
---      | inr hr => 
---        let ⟨a,⟨bl,⟨hy,⟨i,hi⟩⟩⟩⟩ := hr
---        use hy,i,a
---        constructor
---        · exact hi
---        · simp only [bl, or_true]
---    · intro hmpr 
---      let ⟨a,i,c,⟨d1,d2⟩⟩  := hmpr
---      cases d2 with 
---      | inl hl => 
---        left
---        use a, i
---        rw [←hl] at d1
---        exact d1
---      | inr hr => 
---        right
---        use c
---        constructor
---        · exact hr
---        · use a,i
+theorem subposition_iff_exists {A : Type} {x y : Primordial A} : Subposition x y ↔
+   ∃ h : (y∈ Comp A),∃ p:Player, ∃ z ∈  moves (⟨y,h⟩) p, WSubposition x z := by
+   unfold WSubposition Subposition
+   rw [Relation.transGen_iff]
+   dsimp only [option]
+   simp_rw [Set.mem_iUnion]   
+   constructor
+   · intro hmp
+     cases hmp with
+     | inl hl => 
+       let ⟨a,⟨i,hi⟩⟩ := hl
+       use a,i,x
+       constructor
+       · exact hi
+       · simp only [true_or]
+     | inr hr => 
+       let ⟨a,⟨bl,⟨hy,⟨i,hi⟩⟩⟩⟩ := hr
+       use hy,i,a
+       constructor
+       · exact hi
+       · simp only [bl, or_true]
+   · intro hmpr 
+     let ⟨a,i,c,⟨d1,d2⟩⟩  := hmpr
+     cases d2 with 
+     | inl hl => 
+       left
+       use a, i
+       rw [←hl] at d1
+       exact d1
+     | inr hr => 
+       right
+       use c
+       constructor
+       · exact hr
+       · use a,i
 
--- @[simp, refl] theorem WSubposition.refl {A : Type} (x : Primordial A) : WSubposition x x := .inl rfl
--- theorem WSubposition.rfl {A : Type} {x : Primordial A} : WSubposition x x := .refl x
--- theorem wsubposition_of_eq {A : Type} {x y : Primordial A} (hxy : x = y) : WSubposition x y := hxy ▸ .rfl
+@[simp, refl] theorem WSubposition.refl {A : Type} (x : Primordial A) : WSubposition x x := .inl rfl
+theorem WSubposition.rfl {A : Type} {x : Primordial A} : WSubposition x x := .refl x
+theorem wsubposition_of_eq {A : Type} {x y : Primordial A} (hxy : x = y) : WSubposition x y := hxy ▸ .rfl
 
--- theorem wsubposition_of_subposition {A : Type} {x y : Primordial A} (h : Subposition x y) :
---     WSubposition x y := .inr h
+theorem wsubposition_of_subposition {A : Type} {x y : Primordial A} (h : Subposition x y) :
+    WSubposition x y := .inr h
 
--- alias Subposition.wsubposition := wsubposition_of_subposition
+alias Subposition.wsubposition := wsubposition_of_subposition
 
--- theorem subposition_of_wsubposition_of_subposition {A : Type} {x y z : Primordial A}
---     (hxy : WSubposition x y) (hyz : Subposition y z) : Subposition x z := by
---   obtain rfl | hxy := hxy
---   · exact hyz
---   · exact hxy.trans hyz
+theorem subposition_of_wsubposition_of_subposition {A : Type} {x y z : Primordial A}
+    (hxy : WSubposition x y) (hyz : Subposition y z) : Subposition x z := by
+  obtain rfl | hxy := hxy
+  · exact hyz
+  · exact hxy.trans hyz
 
--- theorem subposition_of_subposition_of_wsubposition {A : Type} {x y z : Primordial A}
---     (hxy : Subposition x y) (hyz : WSubposition y z) : Subposition x z := by
---   obtain rfl | hyz := hyz
---   · exact hxy
---   · exact hxy.trans hyz
+theorem subposition_of_subposition_of_wsubposition {A : Type} {x y z : Primordial A}
+    (hxy : Subposition x y) (hyz : WSubposition y z) : Subposition x z := by
+  obtain rfl | hyz := hyz
+  · exact hxy
+  · exact hxy.trans hyz
 
--- alias WSubposition.trans_subposition := subposition_of_wsubposition_of_subposition
--- alias Subposition.trans_wsubposition' := subposition_of_wsubposition_of_subposition
--- alias Subposition.trans_wsubposition := subposition_of_subposition_of_wsubposition
--- alias WSubposition.trans_subposition' := subposition_of_subposition_of_wsubposition
+alias WSubposition.trans_subposition := subposition_of_wsubposition_of_subposition
+alias Subposition.trans_wsubposition' := subposition_of_wsubposition_of_subposition
+alias Subposition.trans_wsubposition := subposition_of_subposition_of_wsubposition
+alias WSubposition.trans_subposition' := subposition_of_subposition_of_wsubposition
 
--- @[trans] theorem wsubposition_trans {A : Type} {x y z : Primordial A}
---     (hxy : WSubposition x y) (hyz : WSubposition y z) : WSubposition x z := by
---   obtain rfl | hyz := hyz
---   · exact hxy
---   · exact (hxy.trans_subposition hyz).wsubposition
+@[trans] theorem wsubposition_trans {A : Type} {x y z : Primordial A}
+    (hxy : WSubposition x y) (hyz : WSubposition y z) : WSubposition x z := by
+  obtain rfl | hyz := hyz
+  · exact hxy
+  · exact (hxy.trans_subposition hyz).wsubposition
 
--- alias WSubposition.trans := wsubposition_trans
+alias WSubposition.trans := wsubposition_trans
 
--- instance {A : Type} : @Trans (Primordial A) (_) (_) Subposition Subposition Subposition := ⟨Subposition.trans⟩
--- instance {A : Type} : @Trans (Primordial A) (_) (_) WSubposition Subposition Subposition := ⟨WSubposition.trans_subposition⟩
--- instance {A : Type} : @Trans (Primordial A) (_) (_) Subposition WSubposition Subposition := ⟨Subposition.trans_wsubposition⟩
--- instance {A : Type} : @Trans (Primordial A) (_) (_) WSubposition WSubposition WSubposition := ⟨WSubposition.trans⟩
+instance {A : Type} : @Trans (Primordial A) (_) (_) Subposition Subposition Subposition := ⟨Subposition.trans⟩
+instance {A : Type} : @Trans (Primordial A) (_) (_) WSubposition Subposition Subposition := ⟨WSubposition.trans_subposition⟩
+instance {A : Type} : @Trans (Primordial A) (_) (_) Subposition WSubposition Subposition := ⟨Subposition.trans_wsubposition⟩
+instance {A : Type} : @Trans (Primordial A) (_) (_) WSubposition WSubposition WSubposition := ⟨WSubposition.trans⟩
 
--- theorem not_subposition_of_wsubposition {A : Type} {x y : Primordial A} (hxy : WSubposition x y) :
---     ¬Subposition y x := fun hyx => Subposition.irrefl x (hxy.trans_subposition hyx)
+theorem not_subposition_of_wsubposition {A : Type} {x y : Primordial A} (hxy : WSubposition x y) :
+    ¬Subposition y x := fun hyx => Subposition.irrefl x (hxy.trans_subposition hyx)
 
--- theorem not_wsubposition_of_subposition {A : Type} {x y : Primordial A} (hxy : Subposition x y) :
---     ¬WSubposition y x := fun hyx => Subposition.irrefl x (hxy.trans_wsubposition hyx)
+theorem not_wsubposition_of_subposition {A : Type} {x y : Primordial A} (hxy : Subposition x y) :
+    ¬WSubposition y x := fun hyx => Subposition.irrefl x (hxy.trans_wsubposition hyx)
 
--- alias WSubposition.not_subposition := not_subposition_of_wsubposition
--- alias Subposition.not_wsubposition := not_wsubposition_of_subposition
+alias WSubposition.not_subposition := not_subposition_of_wsubposition
+alias Subposition.not_wsubposition := not_wsubposition_of_subposition
 
--- theorem wsubposition_antisymm {A : Type} {x y : Primordial A}
---     (hxy : WSubposition x y) (hyx : WSubposition y x) : x = y :=
---   hxy.resolve_right fun h => Subposition.irrefl x (h.trans_wsubposition hyx)
+theorem wsubposition_antisymm {A : Type} {x y : Primordial A}
+    (hxy : WSubposition x y) (hyx : WSubposition y x) : x = y :=
+  hxy.resolve_right fun h => Subposition.irrefl x (h.trans_wsubposition hyx)
 
--- alias WSubposition.antisymm := wsubposition_antisymm
+alias WSubposition.antisymm := wsubposition_antisymm
 
--- theorem wsubposition_antisymm_iff {A : Type} {x y : Primordial A} : x = y ↔ WSubposition x y ∧ WSubposition y x :=
---   ⟨fun h => h ▸ ⟨.rfl, .rfl⟩, fun h => h.1.antisymm h.2⟩
+theorem wsubposition_antisymm_iff {A : Type} {x y : Primordial A} : x = y ↔ WSubposition x y ∧ WSubposition y x :=
+  ⟨fun h => h ▸ ⟨.rfl, .rfl⟩, fun h => h.1.antisymm h.2⟩
 
--- theorem subposition_of_wsubposition_of_ne {A : Type} {x y : Primordial A} (hw : WSubposition x y) (hne : x ≠ y) :
---     Subposition x y := hw.resolve_left hne
+theorem subposition_of_wsubposition_of_ne {A : Type} {x y : Primordial A} (hw : WSubposition x y) (hne : x ≠ y) :
+    Subposition x y := hw.resolve_left hne
 
--- theorem subposition_of_wsubposition_not_wsubposition {A : Type} {x y : Primordial A}
---     (hxy : WSubposition x y) (hyx : ¬WSubposition y x) : Subposition x y :=
---   hxy.resolve_left fun h => hyx (wsubposition_of_eq h.symm)
+theorem subposition_of_wsubposition_not_wsubposition {A : Type} {x y : Primordial A}
+    (hxy : WSubposition x y) (hyx : ¬WSubposition y x) : Subposition x y :=
+  hxy.resolve_left fun h => hyx (wsubposition_of_eq h.symm)
 
--- theorem subposition_iff_wsubposition_not_wsubposition {A : Type} {x y : Primordial A} :
---     Subposition x y ↔ WSubposition x y ∧ ¬WSubposition y x :=
---   ⟨fun hxy => ⟨hxy.wsubposition, hxy.not_wsubposition⟩,
---     fun h => subposition_of_wsubposition_not_wsubposition h.1 h.2⟩
+theorem subposition_iff_wsubposition_not_wsubposition {A : Type} {x y : Primordial A} :
+    Subposition x y ↔ WSubposition x y ∧ ¬WSubposition y x :=
+  ⟨fun hxy => ⟨hxy.wsubposition, hxy.not_wsubposition⟩,
+    fun h => subposition_of_wsubposition_not_wsubposition h.1 h.2⟩
 
--- theorem WSubposition.of_mem_moves {A : Type} {x : Primordial A} {y : Comp A} (h : x ∈ ⋃ p, (moves.{u} y) p) :
---     WSubposition x y := (Subposition.of_mem_moves h).wsubposition
-
-
-
--- @[elab_as_elim]
--- noncomputable def sRecOn {motive : Primordial A → Sort*} (x : Primordial A) (ind : Π x, (Π y : Primordial A, Π _ : Subposition y x, motive y) → motive x) : motive x := 
--- subposition_wf.recursion (_) (λ g ho => ind g ho )  
-
--- @[simp]
--- theorem sRecOn_eq {motive : Primordial A → Sort*} (x : Primordial A)
---     (ind : Π x, (Π y : Primordial A, Π _ : Subposition y x, motive y)→ motive x) :
---     sRecOn x ind = ind x (λ y _ => sRecOn y ind) := 
---     subposition_wf.fix_eq ..
+theorem WSubposition.of_mem_moves {A : Type} {x : Primordial A} {y : Comp A} (h : x ∈ ⋃ p, (moves.{u} y) p) :
+    WSubposition x y := (Subposition.of_mem_moves h).wsubposition
 
 
--- @[elab_as_elim]
--- noncomputable def recOn {motive : Primordial A → Sort*} (x : Primordial A) (ind : Π x, (Π y : Primordial A, Π _ : option y x, motive y) → motive x) : motive x := 
--- subposition_wf.recursion (x) (fun g ho => ind g (fun _ h => (ho _ (optionSubposition h))))
 
--- @[simp]
--- theorem recOn_eq {motive : Primordial A → Sort*} (x : Primordial A)
---     (ind : Π x, (Π y : Primordial A, Π _ : option y x, motive y)→ motive x) :
---     recOn x ind = ind x (λ y _ => recOn y ind) := 
---     subposition_wf.fix_eq ..
+@[elab_as_elim]
+noncomputable def sRecOn {motive : Primordial A → Sort*} (x : Primordial A) (ind : Π x, (Π y : Primordial A, Π _ : Subposition y x, motive y) → motive x) : motive x := 
+subposition_wf.recursion (_) (λ g ho => ind g ho )  
+
+@[simp]
+theorem sRecOn_eq {motive : Primordial A → Sort*} (x : Primordial A)
+    (ind : Π x, (Π y : Primordial A, Π _ : Subposition y x, motive y)→ motive x) :
+    sRecOn x ind = ind x (λ y _ => sRecOn y ind) := 
+    subposition_wf.fix_eq ..
 
 
--- /-- Discharges proof obligations of the form `⊢ Subposition ..` arising in termination proofs
--- of definitions using well-founded recursion on `IGame`. -/
--- macro "Primordial_wf" config:Lean.Parser.Tactic.optConfig : tactic =>
---   `(tactic| all_goals solve_by_elim $config
---     [Prod.Lex.left, Prod.Lex.right, PSigma.Lex.left, PSigma.Lex.right,
---     Subposition.of_mem_moves, Subposition.trans, Subtype.prop] )
+@[elab_as_elim]
+noncomputable def recOn {motive : Primordial A → Sort*} (x : Primordial A) (ind : Π x, (Π y : Primordial A, Π _ : option y x, motive y) → motive x) : motive x := 
+subposition_wf.recursion (x) (fun g ho => ind g (fun _ h => (ho _ (optionSubposition h))))
+
+@[simp]
+theorem recOn_eq {motive : Primordial A → Sort*} (x : Primordial A)
+    (ind : Π x, (Π y : Primordial A, Π _ : option y x, motive y)→ motive x) :
+    recOn x ind = ind x (λ y _ => recOn y ind) := 
+    subposition_wf.fix_eq ..
+
+
+/-- Discharges proof obligations of the form `⊢ Subposition ..` arising in termination proofs
+of definitions using well-founded recursion on `IGame`. -/
+macro "Primordial_wf" config:Lean.Parser.Tactic.optConfig : tactic =>
+  `(tactic| all_goals solve_by_elim $config
+    [Prod.Lex.left, Prod.Lex.right, PSigma.Lex.left, PSigma.Lex.right,
+    Subposition.of_mem_moves, Subposition.trans, Subtype.prop] )
 
 
 -- noncomputable def sum_AA : Atom A→ Atom B → Primordial (A×B) := λ a b => 
