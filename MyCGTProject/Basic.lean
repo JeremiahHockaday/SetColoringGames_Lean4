@@ -103,14 +103,14 @@ namespace Primordial
 export Player (left right)
 -----------------------------------------------------------------------------------
 
-/-! ### OfSetsSC -/
+/-! ### OfSetsPrimordial -/
 
 
 /--
-definition  of the `ofSetsSC` operation.
+definition  of the `ofSets` operation.
 Used to implement the `!{st}` and `!{s | t}` syntax.
 Here we construct a combinatorial Set Coloring game from its left and right sets. -/
-noncomputable def ofSetsSC {A : Type} (st : Player → Set (Primordial A)) [Small.{u} (st left)] [Small.{u} (st right)] : Comp A := 
+noncomputable def ofSets {A : Type} (st : Player → Set (Primordial A)) [Small.{u} (st left)] [Small.{u} (st right)] : Comp A := 
     @Subtype.mk (Primordial A) (λ x => Sum.isRight (moves_or x)) (@mk_comp A ⟨st , 
       λ p => match p with
         |left => by assumption
@@ -118,22 +118,22 @@ noncomputable def ofSetsSC {A : Type} (st : Player → Set (Primordial A)) [Smal
     (by congr)
     
 
-@[inherit_doc Primordial.ofSetsSC]
-macro "!{" st:term:max "}"  : term => `(Primordial.ofSetsSC $st)
+@[inherit_doc Primordial.ofSets]
+macro "!{" st:term:max "}"  : term => `(Primordial.ofSets $st)
 
-@[inherit_doc Primordial.ofSetsSC]
+@[inherit_doc Primordial.ofSets]
 macro "!{" s:term " | " t:term "}" : term => `(!{(Player.cases $s $t)})
 
 
-recommended_spelling "ofSetsSC" for "!{st}" in [Primordial.ofSetsSC, «term!{_}]
-recommended_spelling "ofSetsSC" for "!{s | t}" in [Primordial.ofSetsSC, «term!{_|_}]
+recommended_spelling "ofSets" for "!{st}" in [Primordial.ofSets, «term!{_}»]
+recommended_spelling "ofSets" for "!{s | t}" in [Primordial.ofSets, «term!{_|_}»]
 
 open Lean PrettyPrinter Delaborator SubExpr in
-/-- Delaborates `ofSetsSC (Player.cases s t)` to `!{s | t}` and `ofSetsSC st` to `!{st}`. -/
-@[app_delab Primordial.ofSetsSC]
+/-- Delaborates `ofSets (Player.cases s t)` to `!{s | t}` and `ofSets st` to `!{st}`. -/
+@[app_delab Primordial.ofSets]
 meta def delabOfSetsSC : Delab := do
   let e ← getExpr
-  guard <| e.isAppOfArity' ``Primordial.ofSetsSC 7
+  guard <| e.isAppOfArity' ``Primordial.ofSets 7
   withNaryArg 3 do
     let e ← getExpr
     if e.isAppOfArity' ``Player.cases 3 then
@@ -144,7 +144,7 @@ meta def delabOfSetsSC : Delab := do
       let st ← delab
       `(!{$st})
  
-theorem ofSetsSC_eq_ofSetsSC_cases {A : Type} (st : Player → Set (Primordial.{u} A)) [Small.{u} (st left)] [Small.{u} (st right)] :
+theorem ofSets_eq_ofSets_cases {A : Type} (st : Player → Set (Primordial.{u} A)) [Small.{u} (st left)] [Small.{u} (st right)] :
     !{st} = !{(st left) | (st right)} := by
     congr; ext1 p; cases p <;> rfl
 
@@ -169,51 +169,51 @@ instance small_moves {A : Type} (p : Player) (x : Comp.{u} A) : Small.{u} (moves
 
 
 
--- @[simp]
--- theorem moves_ofSets {A : Type} (st : Player → Set (Primordial A)) (p : Player) [Small.{u} (st left)] [Nonempty (st left)] [Small.{u} (st right)] [Nonempty (st right)] :
---    moves !{st} p = st p := by 
---   dsimp [ofSetsSC, moves]  
---   simp [moves_or_mk_comp_id]
+@[simp]
+theorem moves_ofSets {A : Type} (st : Player → Set (Primordial A)) (p : Player) [Small.{u} (st left)] [Small.{u} (st right)] :
+   moves !{st} p = st p := by 
+  dsimp [ofSets, moves]  
+  simp [moves_or_mk_comp_id]
 
 
--- @[simp]
--- theorem ofSets_moves {A : Type} (x : Comp A) : !{(moves x)}  = x := by
---   dsimp [ ofSetsSC]
---   unfold moves
---   rw [Subtype.eta] 
---   rw [mk_comp_moves_or_id]
+@[simp]
+theorem ofSets_moves {A : Type} (x : Comp A) : !{(moves x)}  = x := by
+  dsimp [ ofSets]
+  unfold moves
+  rw [Subtype.eta] 
+  rw [mk_comp_moves_or_id]
 
--- theorem leftMoves_ofSets (s t : Set (Primordial A)) [Small.{u} s] [Nonempty s] [Small.{u} t] [Nonempty t] : !{s|t}ᴸ = s :=  
--- moves_ofSets ..
+theorem leftMoves_ofSets (s t : Set (Primordial A)) [Small.{u} s] [Small.{u} t] : !{s|t}ᴸ = s :=  
+moves_ofSets ..
 
--- theorem rightMoves_ofSets (s t : Set (Primordial A)) [Small.{u} s] [Nonempty s] [Small.{u} t] [Nonempty t] : !{s|t}ᴿ = t :=  
--- moves_ofSets ..
+theorem rightMoves_ofSets (s t : Set (Primordial A)) [Small.{u} s] [Small.{u} t] : !{s|t}ᴿ = t :=  
+moves_ofSets ..
 
--- @[simp]
--- theorem ofSets_leftMoves_rightMoves (x : Comp A) : !{xᴸ | xᴿ} = x :=  by 
---   convert (ofSets_moves x) with p
---   funext p
---   cases p <;> dsimp [Player.cases]
+@[simp]
+theorem ofSets_leftMoves_rightMoves (x : Comp A) : !{xᴸ | xᴿ} = x :=  by 
+  convert (ofSets_moves x) with p
+  funext p
+  cases p <;> dsimp [Player.cases]
 
--- @[ext]
--- theorem ext {A : Type} {x y : Comp A} (h : ∀ p, moves x p = moves y p) : x = y :=  by 
---     rw [← ofSets_moves x , ← ofSets_moves y ]
---     simp_rw [funext h] 
+@[ext]
+theorem ext {A : Type} {x y : Comp A} (h : ∀ p, moves x p = moves y p) : x = y :=  by 
+    rw [← ofSets_moves x , ← ofSets_moves y ]
+    simp_rw [funext h] 
     
        
--- @[simp]
--- theorem ofSets_inj' {A : Type} {st₁ st₂ : Player → Set (Primordial A)}
---     [Small (st₁ left)] [Small (st₁ right)] [Small (st₂ left)] [Small (st₂ right)] [Nonempty (st₁ left)] [Nonempty (st₁ right)] [Nonempty (st₂ left)] [Nonempty (st₂ right)] :
---     !{st₁} =!{st₂}↔ st₁ = st₂ := by
---     simp_rw [Primordial.ext_iff, moves_ofSets, funext_iff]
+@[simp]
+theorem ofSets_inj' {A : Type} {st₁ st₂ : Player → Set (Primordial A)}
+    [Small (st₁ left)] [Small (st₁ right)] [Small (st₂ left)] [Small (st₂ right)] :
+    !{st₁} =!{st₂}↔ st₁ = st₂ := by
+    simp_rw [Primordial.ext_iff, moves_ofSets, funext_iff]
 
--- @[simp]
--- theorem ofSets_inj {A : Type} {s₁ s₂ t₁ t₂ : Set (Primordial A)} [Small s₁] [Small s₂] [Small t₁] [Small t₂] [Nonempty s₁] [Nonempty s₂] [Nonempty t₁] [Nonempty t₂] :
---     !{s₁ | t₁} = !{s₂ | t₂} ↔ s₁ = s₂ ∧ t₁ = t₂ := by
---   simp
+@[simp]
+theorem ofSets_inj {A : Type} {s₁ s₂ t₁ t₂ : Set (Primordial A)} [Small s₁] [Small s₂] [Small t₁] [Small t₂] :
+    !{s₁ | t₁} = !{s₂ | t₂} ↔ s₁ = s₂ ∧ t₁ = t₂ := by
+  simp
 
 
--- -- Because of the diffference between composite and atomic games, we must define subpositions very carefully.
+-- Because of the diffference between composite and atomic games, we must define subpositions very carefully.
 
 
 -- /-- option x y : y is composite and x is in the left or right set of the game y. -/
@@ -579,7 +579,7 @@ instance small_moves {A : Type} (p : Player) (x : Comp.{u} A) : Small.{u} (moves
 --       have hln : Nonempty (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val left))) := sorry
 --       have hrs : Small.{u} (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val right))):= sorry
 --       have hrn : Nonempty (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val right))) := sorry
---     (@ofSetsSC (A×B) st' _ hln _ hrn).val
+--     (@ofSets (A×B) st' _ hln _ hrn).val
 --   )
 --   sRecOn H ind
 
@@ -604,7 +604,7 @@ instance small_moves {A : Type} (p : Player) (x : Comp.{u} A) : Small.{u} (moves
 -- --                         simp
 -- --                         trivial)
 -- --   let st := (fun p:Player => Set.image (aG_cH g) (cH.val p))
--- --   @ofSetsSC (_) st 
+-- --   @ofSets (_) st 
 -- --     _ 
 -- --     (by 
 -- --     dsimp [st]
@@ -624,7 +624,7 @@ instance small_moves {A : Type} (p : Player) (x : Comp.{u} A) : Small.{u} (moves
 -- --                         simp
 -- --                         trivial)
 -- --   let st := (fun p:Player => Set.image (cG_aH h) (cG.val p))
--- --   @ofSetsSC _ st 
+-- --   @ofSets _ st 
 -- --     _ 
 -- --     (by 
 -- --     dsimp [st]
