@@ -30,9 +30,12 @@ def Primordial (A : Type) : Type (u+1) := @QPF.Fix (PrimordialFunctor A) (QPF_Pr
 noncomputable def moves_or {A : Type} : Primordial A → A ⊕ {s : (Player→ Set (Primordial A)) // ∀ p, Small.{u} (s p)} :=
   fun x =>@QPF.Fix.dest (PrimordialFunctor A) (QPF_PrimordialFunctor A) x
 
+noncomputable abbrev IsAtom {A : Type} (x : Primordial A):= Sum.isLeft (moves_or x)
 
-noncomputable def Atom (A : Type) := {x: Primordial A | Sum.isLeft (moves_or x)}
-noncomputable def Comp (A : Type) := {x : Primordial A | Sum.isRight (moves_or x)}
+noncomputable abbrev IsComp {A : Type} (x : Primordial A) := Sum.isRight (moves_or x)
+
+noncomputable def Atom (A : Type) := {x: Primordial A | IsAtom x}
+noncomputable def Comp (A : Type) := {x : Primordial A | IsComp x}
     
 noncomputable def mk_atom {A : Type} : A → Atom A := fun a => 
 @Subtype.mk (Primordial A) (λ g => Sum.isLeft (moves_or g))
