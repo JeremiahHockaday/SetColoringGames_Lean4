@@ -5,7 +5,6 @@ import Mathlib.Data.Set.Basic
 import MyCGTProject.SmallNonempty
 import Init.Data.Bool
 import Mathlib.Order.GameAdd
-import MyCGTProject.HexFunctor
 import MyCGTProject.Primordial
 
 
@@ -543,6 +542,7 @@ macro "Primordial_wf" config:Lean.Parser.Tactic.optConfig : tactic =>
 
 
 
+/-- Given a function f: A→ B and a game G:Primordial A returns a game of type Primordial B, the result of applying the map -/
 noncomputable def MAP {A B : Type} (f : A → B) : Primordial.{u} A → Primordial.{u} B := 
   let motive : Primordial.{u} A -> Sort (u+2) := λ _ => Primordial.{u} B
   let ind : Π x, (Π y : Primordial A, Π _ : Subposition y x, Primordial.{u} B) → Primordial.{u} B :=
@@ -550,8 +550,7 @@ noncomputable def MAP {A B : Type} (f : A → B) : Primordial.{u} A → Primordi
     match val : @moves_or A x with
     | Sum.inl a => 
       mk_atom (f a)
-    | Sum.inr st => 
-      
+    | Sum.inr st =>       
       let Ops := {y // y.Subposition x}
       -- this is the image of the function that adds two smaller games together, over the set of left (resp. right) options.
       have smallOps : Small.{u} Ops := small_setOf_subposition x
@@ -572,6 +571,13 @@ noncomputable def MAP {A B : Type} (f : A → B) : Primordial.{u} A → Primordi
     (@ofSets B st' hl hr).val
     )
   (λ G => sRecOn G ind)
+
+/-- Want to define a new definition that straight up uses recursion -/
+noncomputable def MAP' (f : A → B) : Primordial A → Primordial B := fun x =>
+  match val : moves_or x with
+  | Sum.inl a => 
+      mk_atom (f a)
+  | Sum.inr st => sorry
 
 
 noncomputable def sum_AA : Atom A→ Atom B → Atom (A×B) := λ a b => 
@@ -606,12 +612,8 @@ instance ProductAssoc {A B C : Type} : ((A×B)×C)≃(A×(B×C)):=
       exact hfg⟩
 
 
-    
-
-
-
-
-
+example {A B C : Type} {a : Atom A} {b : Atom B} {c : Primordial C} : 
+Primordial.MAP ProductAssoc.toFun (sum_AC (sum_AA a b) c) = sum_AC a (sum_AC b c) := sorry
 
 end Primordial
 
