@@ -261,12 +261,10 @@ theorem optionSubposition {A : Type} {x y : Primordial A} : option x y → Subpo
   exact ho
 
 @[aesop unsafe apply 50%]
-theorem Subposition.of_mem_moves {A : Type} {x : Primordial A} {y : Comp A} (h : x ∈ ⋃ p, (moves.{u} y) p) : Subposition x y.1 :=
+theorem Subposition.of_mem_moves {A : Type} {x y : Primordial A} (hy : y ∈ Comp A) (h : x ∈ ⋃ p, (moves.{u} ⟨y, hy⟩) p) : Subposition x y :=
   Relation.TransGen.single (by 
     unfold option
-    have h':y.1∈ Comp A := by 
-      simp
-    use h')
+    use hy)
 
 /-- transitivity of Subposition relation -/
 theorem Subposition.trans {A : Type} {a b c : Primordial A} : Subposition a b → Subposition b c -> Subposition a c := Relation.TransGen.trans
@@ -392,7 +390,7 @@ theorem option.irrefl {A : Type} (x : Primordial A) : ¬option x x := by
     contradiction
 
 theorem self_notMem_moves (A : Type) (p : Player) (x : Comp A) : x.val ∉ moves x p :=  
-  fun hx => Subposition.irrefl x.1 (.of_mem_moves (by 
+  fun hx => Subposition.irrefl x.1 (.of_mem_moves x.2 (by 
   simp only [Set.mem_iUnion]
   use p))
 
@@ -505,10 +503,10 @@ theorem subposition_iff_wsubposition_not_wsubposition {A : Type} {x y : Primordi
   ⟨fun hxy => ⟨hxy.wsubposition, hxy.not_wsubposition⟩,
     fun h => subposition_of_wsubposition_not_wsubposition h.1 h.2⟩
 
-theorem WSubposition.of_mem_moves {A : Type} {x : Primordial A} {y : Comp A} (h : x ∈ ⋃ p, (moves.{u} y) p) :
-    WSubposition x y := (Subposition.of_mem_moves h).wsubposition
-
-
+theorem WSubposition.of_mem_moves {A : Type} {x y : Primordial A} {hy : y ∈ Comp A} (h : x ∈ ⋃ p, (moves.{u} ⟨y, hy⟩) p) :
+    WSubposition x y := by
+    right
+    exact (Subposition.of_mem_moves hy h)
 
 @[elab_as_elim]
 noncomputable def sRecOn {motive : Primordial A → Sort*} (x : Primordial A) (ind : Π x, (Π y : Primordial A, Π _ : Subposition y x, motive y) → motive x) : motive x := 
@@ -573,12 +571,39 @@ noncomputable def MAP {A B : Type} (f : A → B) : Primordial.{u} A → Primordi
   (λ G => sRecOn G ind)
 
 /-- Want to define a new definition that straight up uses recursion -/
-noncomputable def MAP' (f : A → B) : Primordial A → Primordial B := fun x =>
+noncomputable def MAP' (f : A → B) (x : Primordial A) : Primordial B := 
   match val : moves_or x with
   | Sum.inl a => 
       mk_atom (f a)
-  | Sum.inr st => sorry
-
+  | Sum.inr st => 
+    have h: Sum.isRight (moves_or x) := by 
+      simp only [val, Sum.isRight_inr]
+    have h' : x∈ Comp A := by congr
+    have hl : ∀ L∈ ⟨x,h⟩ᴸ, Subposition L x := by
+      intro L hl
+      unfold Subposition
+      rw [Relation.transGen_iff]
+      rw [option_iff_lroption]
+      left
+      left
+      dsimp [LOption]
+      use h'
+    have hr : ∀ R∈ ⟨x,h⟩ᴿ, Subposition R x := by
+      intro R hr
+      unfold Subposition
+      rw [Relation.transGen_iff]
+      rw [option_iff_lroption]
+      left
+      right
+      dsimp [LOption]
+      use h'
+    have lsmall : Small.{u} (Set.range fun z : ⟨x, h'⟩ᴸ ↦ MAP' f z) := by
+      infer_instance
+    have rsmall : Small.{u} (Set.range fun z : ⟨x, h'⟩ᴿ ↦ MAP' f z) := by 
+      infer_instance
+    !{ Set.range (fun z : ⟨x, h'⟩ᴸ ↦ MAP' f z)|Set.range (fun z : ⟨x, h'⟩ᴿ ↦ MAP' f z)}
+termination_by x
+decreasing_by Primordial_wf
 
 noncomputable def sum_AA : Atom A→ Atom B → Atom (A×B) := λ a b => 
 let a' :=(Sum.getLeft (@moves_or A a) a.2);
@@ -613,7 +638,10 @@ instance ProductAssoc {A B C : Type} : ((A×B)×C)≃(A×(B×C)):=
 
 
 example {A B C : Type} {a : Atom A} {b : Atom B} {c : Primordial C} : 
-Primordial.MAP ProductAssoc.toFun (sum_AC (sum_AA a b) c) = sum_AC a (sum_AC b c) := sorry
+MAP' ProductAssoc.toFun (sum_AC (sum_AA a b) c) = sum_AC a (sum_AC b c) := by 
+  sorry
+
+
 
 end Primordial
 
