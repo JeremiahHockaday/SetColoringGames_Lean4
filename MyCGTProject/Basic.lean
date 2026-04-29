@@ -16,7 +16,6 @@ set_option linter.unnecessarySeqFocus false
 universe u
 
 
-
 -- The following definition does not work, as it is non-positive (and lean tells us this). 
 -- inductive badSetGame (α : Type u) where
 -- | atom : α → badSetGame α 
@@ -73,7 +72,7 @@ theorem moves_or_mk_atom_id {A : Type} (x : A) : moves_or (mk_atom x) = Sum.inl 
   rw [QPF.Fix.dest_mk] 
 
 -- Special Games
-noncomputable def casesSC {A : Type} {α : (Primordial A) → Sort*} (ha : ∀ a : Atom A, α a.1) (hc : ∀ g : Comp A, α g.1) ( x : Primordial A): α x := by
+noncomputable def casesSC {A : Type} {α : (Primordial A) → Sort*} (x : Primordial A) (ha : ∀ a : Atom A, α a.1) (hc : ∀ g : Comp A, α g.1) : α x := by
   cases h : Sum.isRight (moves_or x)
   ·have h1 : (moves_or x).isLeft := Sum.isRight_eq_false.mp h;
    exact (ha ⟨x,h1⟩)
@@ -112,6 +111,7 @@ export Player (left right)
 definition  of the `ofSets` operation.
 Used to implement the `!{st}` and `!{s | t}` syntax.
 Here we construct a combinatorial Set Coloring game from its left and right sets. -/
+@[no_expose]
 noncomputable def ofSets {A : Type} (st : Player → Set (Primordial A)) [Small.{u} (st left)] [Small.{u} (st right)] : Comp A := 
     @Subtype.mk (Primordial A) (λ x => Sum.isRight (moves_or x)) (@mk_comp A ⟨st , 
       λ p => match p with
@@ -185,9 +185,11 @@ theorem ofSets_moves {A : Type} (x : Comp A) : !{(moves x)}  = x := by
   rw [Subtype.eta] 
   rw [mk_comp_moves_or_id]
 
+--@[game_cmp]
 theorem leftMoves_ofSets (s t : Set (Primordial A)) [Small.{u} s] [Small.{u} t] : !{s|t}ᴸ = s :=  
 moves_ofSets ..
 
+--@[game_cmp]
 theorem rightMoves_ofSets (s t : Set (Primordial A)) [Small.{u} s] [Small.{u} t] : !{s|t}ᴿ = t :=  
 moves_ofSets ..
 
@@ -209,7 +211,6 @@ theorem ofSets_inj' {A : Type} {st₁ st₂ : Player → Set (Primordial A)}
     !{st₁} =!{st₂}↔ st₁ = st₂ := by
     simp_rw [Primordial.ext_iff, moves_ofSets, funext_iff]
 
-@[simp]
 theorem ofSets_inj {A : Type} {s₁ s₂ t₁ t₂ : Set (Primordial A)} [Small s₁] [Small s₂] [Small t₁] [Small t₂] :
     !{s₁ | t₁} = !{s₂ | t₂} ↔ s₁ = s₂ ∧ t₁ = t₂ := by
   simp
@@ -573,6 +574,8 @@ noncomputable def MAP {A B : Type} (f : A → B) : Primordial.{u} A → Primordi
     )
   (λ G => sRecOn G ind)
 
+#check casesSC
+
 /-- Want to define a new definition that straight up uses recursion -/
 noncomputable def MAP' (f : A → B) (x : Primordial A) : Primordial B := 
   match val : moves_or x with
@@ -608,6 +611,8 @@ noncomputable def MAP' (f : A → B) (x : Primordial A) : Primordial B :=
 termination_by x
 decreasing_by Primordial_wf
 
+
+
 noncomputable def sum_AA : Atom A→ Atom B → Atom (A×B) := λ a b => 
 let a' :=(Sum.getLeft (@moves_or A a) a.2);
 let b' :=(Sum.getLeft (@moves_or B b) b.2);
@@ -640,9 +645,12 @@ instance ProductAssoc {A B C : Type} : ((A×B)×C)≃(A×(B×C)):=
       exact hfg⟩
 
 
-example {A B C : Type} {a : Atom A} {b : Atom B} {c : Primordial C} : 
-MAP' ProductAssoc.toFun (sum_AC (sum_AA a b) c) = sum_AC a (sum_AC b c) := by 
-  sorry
+example {A B C : Type} {a : Atom A} {b : Atom B} {G : Primordial C} : 
+MAP' ProductAssoc.toFun (sum_AC (sum_AA a b) G) = sum_AC a (sum_AC b G) := by
+  
+  apply casesSC G
+  ·sorry
+  ·sorry
 
 
 
