@@ -166,8 +166,9 @@ theorem ofSets_eq_ofSets_cases {A : Type} (st : Player → Set (Primordial.{u} A
 
 
 /-- The set of moves of a composite game. -/
-def moves {A : Type} (x : Comp A) (p : Player) : Set (Primordial A) :=  
-  (@Sum.getRight A {st : Player → Set (Primordial A) // ∀ p, Small (st p)} (moves_or x.1) x.2).1 p
+def moves {A : Type} (x : Primordial A) (p : Player) : Set (Primordial A) :=  
+  if h: IsComp x then (@Sum.getRight A {st : Player → Set (Primordial A) // ∀ p, Small (st p)} (moves_or x) h).1 p
+  else ∅
 
 /-- The set of left moves of a composite game. -/
 notation x:max "ᴸ" => moves x left 
@@ -175,29 +176,43 @@ notation x:max "ᴸ" => moves x left
 /-- The set of right moves of a composite game. -/
 notation x:max "ᴿ" => moves x right 
 
-instance small_moves {A : Type} (p : Player) (x : Comp.{u} A) : Small.{u} (moves x p) := 
-  let g:= Sum.getRight (moves_or x.1) x.2; 
-  have he : g.1 p = moves x p := by rfl;
+instance small_moves {A : Type} (p : Player) (x : Primordial.{u} A) : Small.{u} (moves x p) :=
+  match h:IsComp x with
+  |true =>
+  let g:= Sum.getRight (moves_or x) h; 
+  have he : g.1 p = moves x p := by
+    dsimp [moves]
+    simp only [h]
+    rfl;
   let hg := (g.2 p);
   by 
-  rw [he] at hg 
-  exact hg;
+    rw [he] at hg 
+    exact hg;
+  |false =>by
+   dsimp [moves]
+   simp only [h, Bool.false_eq_true, ↓reduceDIte]
+   infer_instance
+
+
+  
 
 
 
 @[simp]
 theorem moves_ofSets {A : Type} (st : Player → Set (Primordial A)) (p : Player) [Small.{u} (st left)] [Small.{u} (st right)] :
-   moves !{st} p = st p := by 
+   moves !{st}.1 p = st p := by 
   dsimp [ofSets, moves]  
   simp [moves_or_mk_comp_id]
 
 
 @[simp]
-theorem ofSets_moves {A : Type} (x : Comp A) : !{(moves x)}  = x := by
+theorem ofSets_moves {A : Type} (x : Primordial A) (h : IsComp x) : !{(moves x)}  = ⟨x,h⟩  := by
   dsimp [ ofSets]
   unfold moves
-  rw [Subtype.eta] 
-  rw [mk_comp_moves_or_id]
+  simp [h]
+  dsimp [mk_comp,moves_or]
+  simp [QPF.Fix.mk_dest]
+  congr
 
 --@[game_cmp]
 theorem leftMoves_ofSets (s t : Set (Primordial A)) [Small.{u} s] [Small.{u} t] : !{s|t}ᴸ = s :=  
@@ -208,18 +223,22 @@ theorem rightMoves_ofSets (s t : Set (Primordial A)) [Small.{u} s] [Small.{u} t]
 moves_ofSets ..
 
 @[simp]
-theorem ofSets_leftMoves_rightMoves (x : Comp A) : !{xᴸ | xᴿ} = x :=  by 
-  convert (ofSets_moves x) with p
+theorem ofSets_leftMoves_rightMoves (x : Primordial A) (h : IsComp x) : !{xᴸ | xᴿ} = ⟨x,h⟩ :=  by 
+  convert (ofSets_moves x h) with p
   funext p
   cases p <;> dsimp [Player.cases]
 
 @[ext]
-theorem ext {A : Type} {x y : Comp A} (h : ∀ p, moves x p = moves y p) : x = y :=  by 
-    rw [← ofSets_moves x , ← ofSets_moves y ]
-    simp_rw [funext h] 
-    
-       
-@[simp]
+theorem ext {A : Type} (x y : Comp A) (hxy : ∀ p, moves x.val p = moves y.val p) : x = y :=  by
+    have hx : IsComp x.1 := by use x.2 
+    have hy : IsComp y.1 := by use y.2
+    have thisx : x= ⟨x.1,hx⟩ := by simp
+    have thisy : y= ⟨y.1,hy⟩ := by simp
+    rw [thisx, thisy]
+    rw [← ofSets_moves x.1 hx  , ← ofSets_moves y.1 hy ]
+    simp_rw [funext hxy]
+
+
 theorem ofSets_inj' {A : Type} {st₁ st₂ : Player → Set (Primordial A)}
     [Small (st₁ left)] [Small (st₁ right)] [Small (st₂ left)] [Small (st₂ right)] :
     !{st₁} =!{st₂}↔ st₁ = st₂ := by
@@ -227,21 +246,38 @@ theorem ofSets_inj' {A : Type} {st₁ st₂ : Player → Set (Primordial A)}
 
 theorem ofSets_inj {A : Type} {s₁ s₂ t₁ t₂ : Set (Primordial A)} [Small s₁] [Small s₂] [Small t₁] [Small t₂] :
     !{s₁ | t₁} = !{s₂ | t₂} ↔ s₁ = s₂ ∧ t₁ = t₂ := by
-  simp
+      have this: Player.cases s₁ t₁ =Player.cases s₂ t₂ ↔ s₁ = s₂ ∧ t₁ =t₂ := by
+        simp
+      have this2 : ofSets (Player.cases s₁ t₁) = ofSets (Player.cases s₂ t₂) ↔ Player.cases s₁ t₁  = Player.cases s₂ t₂ := by
+        constructor
+        · intro h
+          have h' :  moves (ofSets (Player.cases s₁ t₁)).1 = moves (ofSets (Player.cases s₂ t₂)).1 := by
+            apply (congrArg)
+            simp [h]
+          have h'' : ∀ p:Player, moves (ofSets (Player.cases s₁ t₁)).1 p = moves (ofSets (Player.cases s₂ t₂)).1 p := by
+           intro p
+           simp only [h']
+          funext p
+          simp only [← moves_ofSets (Player.cases s₁ t₁) p,← moves_ofSets (Player.cases s₂ t₂) p]
+          exact h'' p
+        · intro h
+          simp [h]
+      simp [this2,this]
+        
 
 
 -- Because of the diffference between composite and atomic games, we must define subpositions very carefully.
 
 
 /-- option x y : y is composite and x is in the left or right set of the game y. -/
-def option {A : Type} : (Primordial.{u} A) → (Primordial.{u} A) → Prop := fun x y => ∃ h:y ∈ Comp.{u} A, x ∈ ⋃ p, (moves.{u} ⟨y,h⟩) p
+def option {A : Type} : (Primordial.{u} A) → (Primordial.{u} A) → Prop := fun x y =>  x ∈ ⋃ p, (moves.{u} y) p
 
 /-- x is a left option of the game y -/
-def LOption {A : Type} : (Primordial.{u} A) → (Primordial.{u} A) → Prop := fun x y => ∃ h:y ∈ Comp.{u} A, x ∈ (moves.{u} ⟨y,h⟩) left
+def LOption {A : Type} : (Primordial.{u} A) → (Primordial.{u} A) → Prop := fun x y => x ∈ (moves.{u} y) left
 
 /-- x is a right option of the game y -/
-def ROption {A : Type} : (Primordial.{u} A) → (Primordial.{u} A) → Prop := fun x y => ∃ h:y ∈ Comp.{u} A, x ∈ (moves.{u} ⟨y,h⟩) right
-
+def ROption {A : Type} : (Primordial.{u} A) → (Primordial.{u} A) → Prop := fun x y => x ∈ (moves.{u} y) right
+/-
 /-- x is an option of y iff x is a left or right option of y. -/
 theorem option_iff_lroption {x y : Primordial A} : option x y ↔ LOption x y ∨ ROption x y := by 
   dsimp [option, LOption, ROption]
