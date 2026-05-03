@@ -55,17 +55,19 @@ theorem mk_atom_moves_or_id {A : Type} (x : Atom A) : mk_atom (Sum.getLeft (move
   congr
   rw [Sum.inl_getLeft, mk_moves_or_id]
 
+@[simp]
 theorem mk_comp_moves_or_id {A : Type} (x : Comp A) : mk_comp (Sum.getRight (moves_or x.1) x.2) = x := by 
   unfold mk_comp
   congr
   rw [Sum.inr_getRight, mk_moves_or_id]
 
-
+@[simp]
 theorem moves_or_mk_comp_id {A : Type} (st : Player → Set (Primordial A)) (h : ∀ p, Small (st p)) : moves_or (mk_comp ⟨st, h⟩) = Sum.inr ⟨st, h⟩ := by 
   dsimp [moves_or,mk_comp]
   rw [QPF.Fix.dest_mk] 
 
 
+@[simp]
 theorem moves_or_mk_atom_id {A : Type} (x : A) : moves_or (mk_atom x) = Sum.inl x
 := by 
   dsimp [moves_or,mk_atom]
@@ -77,6 +79,18 @@ noncomputable def casesSC {A : Type} {α : (Primordial A) → Sort*} (x : Primor
   ·have h1 : (moves_or x).isLeft := Sum.isRight_eq_false.mp h;
    exact (ha ⟨x,h1⟩)
   ·exact (hc ⟨x,h⟩)
+
+noncomputable def casesSC' {A : Type} {α : (Primordial A) → Sort*} (x : Primordial A) (ha : ∀ a :A, α (mk_atom a)) (hc : ∀ G : {st : Player → Set (Primordial A) // ∀ p, Small (st p)}, α (mk_comp G)) : α x := by
+  cases h : IsComp x
+  · have this := ha (Sum.getLeft (moves_or x) (Sum.isRight_eq_false.mp h))
+    dsimp [mk_atom, moves_or] at this
+    simp only [Sum.inl_getLeft, QPF.Fix.mk_dest] at this
+    exact this
+  · have this := hc (Sum.getRight (moves_or x) (h))
+    dsimp [mk_comp, moves_or] at this
+    simp only [Sum.inr_getRight, QPF.Fix.mk_dest] at this
+    exact this
+
 
 theorem Atom_nComp_iff {A : Type} {x : Primordial A} : x∈ Atom A ↔ x ∉Comp A := by
   dsimp [Comp] 
@@ -576,14 +590,17 @@ noncomputable def MAP {A B : Type} (f : A → B) : Primordial.{u} A → Primordi
 
 #check casesSC
 
+
+
+
 /-- Want to define a new definition that straight up uses recursion -/
 noncomputable def MAP' (f : A → B) (x : Primordial A) : Primordial B := 
-  match val : moves_or x with
-  | Sum.inl a => 
-      mk_atom (f a)
-  | Sum.inr st => 
-    have h: Sum.isRight (moves_or x) := by 
-      simp only [val, Sum.isRight_inr]
+--  match val: moves_or x with
+  match hx : IsAtom x with
+  |true => 
+    mk_atom (f (Sum.getLeft (moves_or x) hx))
+  |false => 
+    have h: IsComp x := Sum.isLeft_eq_false.mp hx 
     have h' : x∈ Comp A := by congr
     have hl : ∀ L∈ ⟨x,h⟩ᴸ, Subposition L x := by
       intro L hl
@@ -613,18 +630,11 @@ decreasing_by Primordial_wf
 
 
 
-noncomputable def sum_AA : Atom A→ Atom B → Atom (A×B) := λ a b => 
-let a' :=(Sum.getLeft (@moves_or A a) a.2);
-let b' :=(Sum.getLeft (@moves_or B b) b.2);
-(mk_atom (a',b'))
 
 
-noncomputable def sum_AC (g : Atom A) (H : Primordial.{u} B) : Primordial.{u} (A×B) := 
-  let g' :A := (Sum.getLeft (@moves_or A g) g.2)
-  let f := (λ b:B => (g',b))
-  MAP f H
   
-  
+
+
 instance ProductAssoc {A B C : Type} : ((A×B)×C)≃(A×(B×C)):= 
   let f :((A×B)×C)→(A×(B×C)) := fun ((x1,x2),x3) => (x1,(x2,x3))
   let g :(A×(B×C))→((A×B)×C) := fun (x1,(x2,x3)) => ((x1,x2),x3)
@@ -644,19 +654,61 @@ instance ProductAssoc {A B C : Type} : ((A×B)×C)≃(A×(B×C)):=
       simp only[Function.comp_apply] at hfg
       exact hfg⟩
 
+theorem MAP_comp (f : A → B) (g : B → C) (x : Primordial A) : MAP' g (MAP' f x) = MAP' (g∘f) x := sorry
 
-example {A B C : Type} {a : Atom A} {b : Atom B} {G : Primordial C} : 
-MAP' ProductAssoc.toFun (sum_AC (sum_AA a b) G) = sum_AC a (sum_AC b G) := by
+
+noncomputable def sum_AA : Atom A→ Atom B → Atom (A×B) := λ a b => 
+let a' :=(Sum.getLeft (@moves_or A a) a.2);
+let b' :=(Sum.getLeft (@moves_or B b) b.2);
+(mk_atom (a',b'))
+
+
+noncomputable def sum_AC (g : Atom A) (H : Primordial.{u} B) : Primordial.{u} (A×B) := 
+  let g' :A := (Sum.getLeft (@moves_or A g) g.2)
+  let f := (λ b:B => (g',b))
+  MAP' f H
   
-  apply casesSC G
-  ·sorry
-  ·sorry
 
+example {A B C : Type} {a : Atom.{u} A} {b : Atom.{u} B} {G : Primordial.{u} C} : 
+MAP' (fun ((x1,x2),x3) => (x1,(x2,x3))) (sum_AC (sum_AA a b) G) = sum_AC a (sum_AC b G) := match hg : IsAtom G with 
+|true => sorry
+|false => sorry
+
+
+
+noncomputable def test1 {A} (x : Primordial A) : Nat :=
+match IsAtom x with 
+| true => 0
+| false=> 1
+noncomputable def test2 {A} (x : Primordial A) : Prop :=
+match IsAtom x with 
+| true => True
+| false=> ∀ y :Primordial A, option y x -> test2 y
+termination_by x
+decreasing_by Primordial_wf
+
+example {A B} (x : Atom A) (y : Atom B) : test1 x.1 = test1 y.1 := by 
+dsimp [test1] 
+have hx :IsAtom x.1 := x.2
+have hy :IsAtom y.1 := y.2
+simp [hx,hy]
+
+theorem test10 {A} (x : Primordial A) : test2 x  := by
+match hx:IsAtom x with
+| true =>
+  unfold test2
+  simp only [hx]
+| false =>
+  unfold test2
+  simp only [hx]
+  intro y hy
+  exact test10 y
+termination_by x
+decreasing_by Primordial_wf
 
 
 end Primordial
 
--- PrimordialFunctor ()
 
 
 
