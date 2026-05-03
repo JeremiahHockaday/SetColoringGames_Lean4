@@ -594,14 +594,12 @@ noncomputable def MAP {A B : Type} (f : A → B) : Primordial.{u} A → Primordi
 
 
 /-- Want to define a new definition that straight up uses recursion -/
-noncomputable def MAP' (f : A → B) (x : Primordial A) : Primordial B := 
+noncomputable def MAP' (f : A → B) (x : Primordial.{u} A) : Primordial B := 
 --  match val: moves_or x with
-  match hx : IsAtom x with
-  |true => 
+  if hx : IsAtom.{u} x then
     mk_atom (f (Sum.getLeft (moves_or x) hx))
-  |false => 
-    have h: IsComp x := Sum.isLeft_eq_false.mp hx 
-    have h' : x∈ Comp A := by congr
+  else 
+    have h: IsComp x := Sum.not_isLeft.mp hx 
     have hl : ∀ L∈ ⟨x,h⟩ᴸ, Subposition L x := by
       intro L hl
       unfold Subposition
@@ -610,7 +608,7 @@ noncomputable def MAP' (f : A → B) (x : Primordial A) : Primordial B :=
       left
       left
       dsimp [LOption]
-      use h'
+      use h
     have hr : ∀ R∈ ⟨x,h⟩ᴿ, Subposition R x := by
       intro R hr
       unfold Subposition
@@ -619,20 +617,20 @@ noncomputable def MAP' (f : A → B) (x : Primordial A) : Primordial B :=
       left
       right
       dsimp [LOption]
-      use h'
-    have lsmall : Small.{u} (Set.range fun z : ⟨x, h'⟩ᴸ ↦ MAP' f z) := by
+      use h
+    have lsmall : Small.{u} (Set.range fun z : ⟨x, h⟩ᴸ ↦ MAP' f z) := by
       infer_instance
-    have rsmall : Small.{u} (Set.range fun z : ⟨x, h'⟩ᴿ ↦ MAP' f z) := by 
+    have rsmall : Small.{u} (Set.range fun z : ⟨x, h⟩ᴿ ↦ MAP' f z) := by 
       infer_instance
-    !{ Set.range (fun z : ⟨x, h'⟩ᴸ ↦ MAP' f z)|Set.range (fun z : ⟨x, h'⟩ᴿ ↦ MAP' f z)}
+    !{ Set.range (fun z : ⟨x, h⟩ᴸ ↦ MAP' f z)|Set.range (fun z : ⟨x, h⟩ᴿ ↦ MAP' f z)}
 termination_by x
 decreasing_by Primordial_wf
 
+@[simp] lemma MAP'_atom {A B} {f : A → B} (x : Primordial A) (hx : IsAtom x) :
+  MAP' f x = mk_atom (f (Sum.getLeft (moves_or x) hx)) := by
+  unfold MAP'
+  simp [hx]
 
-
-
-
-  
 
 
 instance ProductAssoc {A B C : Type} : ((A×B)×C)≃(A×(B×C)):= 
@@ -654,9 +652,20 @@ instance ProductAssoc {A B C : Type} : ((A×B)×C)≃(A×(B×C)):=
       simp only[Function.comp_apply] at hfg
       exact hfg⟩
 
-theorem MAP_comp (f : A → B) (g : B → C) (x : Primordial A) : MAP' g (MAP' f x) = MAP' (g∘f) x := sorry
-
-
+theorem MAP_comp (f : A → B) (g : B → C) (x : Primordial.{u} A) : MAP' g (MAP' f x) = MAP' (g∘f) x := by
+  match h: IsAtom x with
+    |true =>
+      have h1 : IsAtom (MAP' f x) := sorry
+      have h2 : IsAtom (MAP' (g∘ f) x) := sorry
+      rw [MAP'_atom _ h1]
+      simp [MAP'_atom _ h]
+    |false =>
+      unfold MAP'
+      have h1 : ¬IsAtom (MAP' f x) := sorry
+      have h2 : ¬IsAtom (MAP' (g∘f) x) := sorry
+      
+      sorry
+      
 noncomputable def sum_AA : Atom A→ Atom B → Atom (A×B) := λ a b => 
 let a' :=(Sum.getLeft (@moves_or A a) a.2);
 let b' :=(Sum.getLeft (@moves_or B b) b.2);
@@ -686,6 +695,31 @@ match IsAtom x with
 | false=> ∀ y :Primordial A, option y x -> test2 y
 termination_by x
 decreasing_by Primordial_wf
+
+noncomputable def test3 {A} (x : Primordial A) : Primordial A :=
+if  h : IsAtom x then
+   mk_atom (Sum.getLeft (moves_or x) h)
+else
+ have h' : IsComp x := by
+   simp at h
+   simp [h]
+ mk_comp (Sum.getRight (moves_or x) h')
+
+example {A} (x : Primordial A) : x = test3 x := by
+match h: IsAtom x with
+|true =>
+      dsimp [test3]
+      simp [h]
+      dsimp [mk_atom]
+      dsimp [moves_or]
+      simp [QPF.Fix.mk_dest]
+|false =>
+      dsimp [test3]
+      simp [h]
+      dsimp [mk_comp]
+      dsimp [moves_or]
+      simp [QPF.Fix.mk_dest]
+
 
 example {A B} (x : Atom A) (y : Atom B) : test1 x.1 = test1 y.1 := by 
 dsimp [test1] 
