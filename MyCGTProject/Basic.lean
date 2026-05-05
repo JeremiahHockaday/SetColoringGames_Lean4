@@ -357,7 +357,7 @@ lemma tempName {α : Type (u + 1)} {q : α → Prop}
 (hst : st ∈ {s: Player → Set (Subtype q)|∀ p, Small.{u} (s p)}) : (λ p => Set.image Subtype.val (st p)) ∈ {s: Player→Set α| ∀ p, Small.{u} (s p)} := by 
   simp only [Player.forall, Set.mem_setOf_eq]
   simp only [Player.forall, Set.mem_setOf_eq] at hst
-  let ⟨b,d⟩ := hst
+  let ⟨_,_⟩ := hst
   constructor
   · exact subtype_set_small (q) (st Player.left)
   · exact subtype_set_small (q) (st Player.right)
@@ -367,30 +367,33 @@ theorem acc_all {A : Type} (x : Primordial A) : Acc option x := by
   rintro val ⟨fx,rfl⟩
   cases fx with 
   | inl a =>
-    constructor
-    rintro y h1
-   
-    _
+      constructor
+      -- contradiction: atoms have no options
+      have : IsAtom (QPF.Fix.mk (@PrimordialFunctor.map A (Subtype (Acc option)) _ Subtype.val (Sum.inl a))) := by
+       simp [IsAtom, moves_or, QPF.Fix.dest_mk]
+       congr
+      have := (Atom_no_options _ this)
+      rintro y hy
+      rw [isEmpty_iff] at this
+      exfalso
+      exact this ⟨y,hy⟩
     
   | inr g =>
     let ⟨st,hst⟩ := g;
+    have hcomp : IsComp (QPF.Fix.mk (PrimordialFunctor.map A Subtype.val (Sum.inr ⟨st, hst⟩))) := by congr;
+    have hpull:  PrimordialFunctor.map A (Subtype.val) (Sum.inr ⟨st, hst⟩) = @Sum.inr A (_) (⟨(λ p => Set.image Subtype.val (st p)),tempName st hst⟩) := by congr;
     constructor
     rintro y hy
-    rw [PrimordialFunctor.map_def] at hy
     dsimp only [option]at hy
-    simp only [Set.mem_iUnion] at hy
-    have h1 : IsComp (QPF.Fix.mk (PrimordialFunctor.map A Subtype.val (Sum.inr ⟨st, hst⟩))) := sorry
+    simp only [PrimordialFunctor.map_def, Set.mem_iUnion] at hy
     obtain ⟨a,b⟩ := hy
-    have := moves_comp _ h1 a
-    
-    have hpull:  PrimordialFunctor.map A (Subtype.val) (Sum.inr ⟨st, hst⟩) = @Sum.inr A (_) (⟨(λ p => Set.image Subtype.val (st p)),tempName st hst⟩) := by congr;
-    rw [hpull] at hy
-    dsimp [moves,moves_or] at hy
-    
-    simp only [QPF.Fix.dest_mk] at hy
-    obtain ⟨a,⟨b,⟨cl,cr⟩⟩⟩ := hy
-    
-    _
+    have := moves_comp _ hcomp a
+    rw [hpull] at b
+    dsimp [moves,moves_or] at b
+    simp only [QPF.Fix.dest_mk] at b
+    obtain ⟨w,⟨_,c⟩⟩ := b
+    rw [← c]
+    exact w.property
     
     
 /-

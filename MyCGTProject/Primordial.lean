@@ -15,6 +15,7 @@ set_option linter.unnecessarySeqFocus false
 public section
 
 
+
 /-- Given ( A : Type), the functor "PrimordialFunctor A" maps  α :Type u to the direct sum of A and pairs of Set (α). This is close to the shape of set coloring games (in set coloring games we require option sets to be non-empty as well. -/
 @[expose]
 def PrimordialFunctor (A : Type) (α : Type (u + 1)) : Type ((u + 1)) :=
