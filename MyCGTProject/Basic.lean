@@ -650,13 +650,119 @@ noncomputable def MAP' (f : A → B) (x : Primordial.{u} A) : Primordial B :=
 termination_by x
 decreasing_by Primordial_wf
 
-@[simp] lemma MAP'_atom {A B} {f : A → B} (x : Primordial A) (hx : IsAtom x) :
+@[simp] lemma MAP'_mk_atom {A B} {f : A → B} (x : Primordial A) (hx : IsAtom x) :
   MAP' f x = mk_atom (f (Sum.getLeft (moves_or x) hx)) := by
   unfold MAP'
   simp [hx]
 
 
 
+@[simp]
+lemma MAP'_IsAtom {A B} {f : A → B} {x : Primordial A} :  IsAtom (MAP' f x) =IsAtom x := by
+      match h : IsAtom x with
+      | true => 
+             unfold MAP'
+             simp [h, IsAtom]
+             
+      | false => 
+              unfold MAP'
+              simp only [h, Bool.false_eq_true, ↓reduceDIte, Sum.isLeft_eq_false]
+              dsimp only [ofSets]
+              simp only [moves_or_mk_comp_id, Sum.isRight_inr]
+
+lemma image_member {A B : Type} {f : A → B} {x : Primordial.{u} A} {p : Player} :∀ a:Primordial B, (a∈ (MAP' f x).moves p ↔ ∃ w ∈ x.moves p, MAP' f w = a) := 
+  by
+  intro a
+  match h: IsAtom x with
+  |true => 
+    have h1 : IsAtom (MAP' f x) := by
+        simp only [MAP'_IsAtom]
+        exact h
+    unfold MAP'
+    constructor
+    · intro h'
+--      dsimp [mk_atom,moves_or] at h'
+      simp [h,↓reduceDIte] at h'
+      have : IsAtom.{u} (mk_atom (f ((moves_or x).getLeft h))).1 := by congr
+      simp only at this
+      have this' :=Atom_no_options _ this
+      exfalso
+      contradiction
+    · intro ⟨w,⟨hwi,hwf⟩⟩
+      have := Atom_no_options _ h
+      exfalso
+      rw [isEmpty_iff] at this
+      have this': w.option x := by 
+        dsimp [option]
+        simp only [Set.mem_iUnion]
+        use p
+      exact this ⟨w,this'⟩
+  |false => 
+    have h1 : ¬IsAtom (MAP' f x) := by
+        simp only [MAP'_IsAtom,h, Bool.false_eq_true, not_false_eq_true]
+    constructor
+    · intro h'
+      unfold MAP' at h'
+      simp only [h,Bool.false_eq_true, ↓reduceDIte, moves_ofSets, Player.cases] at h'
+      cases p <;> (simp only [Set.mem_range, Subtype.exists, exists_prop] at h' ; exact h')
+    · intro ⟨w,⟨hwi,hwf⟩⟩
+      unfold MAP'
+      simp only [h,Bool.false_eq_true, ↓reduceDIte]
+      cases p <;> (simp only [moves_ofSets, Player.cases, Set.mem_range, Subtype.exists, exists_prop]; use w)
+
+theorem MAP_comp {A B C : Type} (f : A → B) (g : B → C) (x : Primordial.{u} A) : MAP' g (MAP' f x) = MAP' (g∘f) x := by
+  match h: IsAtom x with
+    |true =>
+      have h1 : IsAtom (MAP' f x) := by 
+        simp only [MAP'_IsAtom,h]
+      rw [MAP'_mk_atom _ h1]
+      simp [MAP'_mk_atom _ h]
+    |false =>
+       have h1 : ¬IsAtom (MAP' f x) := by
+        simp only [MAP'_IsAtom,h, Bool.false_eq_true, not_false_eq_true]
+       -- after unfolding the definition of MAP', this is the only thing that remains to be shown. It relies on the recursive definition of MAP', so regrettably we cannot extract the proof of this to a lemma.
+       have hrange :∀ p:Player, Set.range (fun z: moves (MAP' f x) p => MAP' g z) = Set.range (fun z: moves x p => MAP' (g∘f) z) :=by 
+        intro p
+        ext t
+        -- We prove that two sets are equal by proving that, a is in one iff a is in the other.
+        constructor 
+        ·    intro h'
+             obtain ⟨a,b⟩ := h'
+             have this : ∃ w: moves x p, MAP' f w = a := by simp only [Subtype.exists, exists_prop, (image_member a.1).mp (a.property)]
+             simp only at b
+             dsimp [Set.range]
+             obtain ⟨w1,w2⟩ := this
+             have : ↑w1 ∈ ⋃ p, (moves x) p := by
+                  simp only [Set.mem_iUnion]
+                  use p
+                  exact w1.property
+             use w1
+             rw [← MAP_comp, w2,b]
+        ·    intro h'
+             obtain ⟨a,b⟩ := h'
+             have : a.1∈ x.moves p := by exact a.property;
+             have : ↑a ∈ ⋃ p, (moves x) p := Set.mem_iUnion.mpr (by use p);
+             have : (MAP' f a)∈ (MAP' f x).moves p := 
+                  (image_member (MAP' f a)).mpr (by use a);
+             simp only at b
+             rw [← MAP_comp] at b
+             dsimp [Set.range]
+             simp only [Subtype.exists, exists_prop]
+             use (MAP' f a)
+       unfold MAP';simp only [h1,h, Bool.false_eq_true, ↓reduceDIte];
+       simp only [hrange]
+termination_by x
+decreasing_by Primordial_wf
+
+noncomputable def sum_AA : Atom A→ Atom B → Atom (A×B) := λ a b => 
+let a' :=(Sum.getLeft (@moves_or A a) a.2);
+let b' :=(Sum.getLeft (@moves_or B b) b.2);
+(mk_atom (a',b'))
+
+
+noncomputable def sum_AC (g : Atom A) (H : Primordial.{u} B) : Primordial.{u} (A×B) := 
+  MAP' (λ b:B => ((Sum.getLeft (@moves_or A g) g.2),b)) H
+  
 instance ProductAssoc {A B C : Type} : ((A×B)×C)≃(A×(B×C)):= 
   let f :((A×B)×C)→(A×(B×C)) := fun ((x1,x2),x3) => (x1,(x2,x3))
   let g :(A×(B×C))→((A×B)×C) := fun (x1,(x2,x3)) => ((x1,x2),x3)
@@ -676,68 +782,30 @@ instance ProductAssoc {A B C : Type} : ((A×B)×C)≃(A×(B×C)):=
       simp only[Function.comp_apply] at hfg
       exact hfg⟩
 
-lemma temp {A B C : Type} (f : A → B) (g : B → C) (x : Primordial A) (p : Player) : Set.range (fun z: moves (MAP' f x) p => MAP' g z) = Set.range (fun z: moves x p => MAP' (g∘f) z) := by
-  ext t
-  constructor
-  · intro h
-    obtain ⟨a,b⟩ := h
-    simp at b
-    dsimp [Set.range]
-    have this : ∃ w: moves x p, MAP' f w = a := sorry
-    obtain ⟨w1,w2⟩ := this
-    use w1
-    _    
-    
-     
-       
-  · _
-
-theorem MAP_comp (f : A → B) (g : B → C) (x : Primordial.{u} A) : MAP' g (MAP' f x) = MAP' (g∘f) x := by
-  match h: IsAtom x with
-    |true =>
-      have h1 : IsAtom (MAP' f x) := sorry
-      have h2 : IsAtom (MAP' (g∘ f) x) := sorry
-      rw [MAP'_atom _ h1]
-      simp [MAP'_atom _ h]
-    |false =>
-      unfold MAP'
-      have h1 : ¬IsAtom (MAP' f x) := sorry
-      have h2 : ¬IsAtom (MAP' (g∘f) x) := sorry
-      simp only [h1,h, Bool.false_eq_true, ↓reduceDIte]
-      let fun1 (p:Player) := (fun z: moves (MAP' f x) p => MAP' g z)
-      let fun2 (p:Player) := (fun z: moves x p => MAP' (g∘f) z)
-      have hrange :∀ p:Player, Set.range (fun z: moves (MAP' f x) p => MAP' g z) = Set.range (fun z: moves x p => MAP' (g∘f) z) :=by 
-        intro p
-        ext t
-        constructor
-        · intro h
-          obtain ⟨a,b⟩ := h
-          simp at b
-          dsimp [Set.range]
-          have this : ∃ w: moves x p, MAP' f w = a := sorry
-          obtain ⟨w1,w2⟩ := this
-          use w1
-          
-        · _    
-  
-      simp [hrange]
-      
-
--- noncomputable def sum_AA : Atom A→ Atom B → Atom (A×B) := λ a b => 
--- let a' :=(Sum.getLeft (@moves_or A a) a.2);
--- let b' :=(Sum.getLeft (@moves_or B b) b.2);
--- (mk_atom (a',b'))
 
 
--- noncomputable def sum_AC (g : Atom A) (H : Primordial.{u} B) : Primordial.{u} (A×B) := 
---   let g' :A := (Sum.getLeft (@moves_or A g) g.2)
---   let f := (λ b:B => (g',b))
---   MAP' f H
-  
 
 -- example {A B C : Type} {a : Atom.{u} A} {b : Atom.{u} B} {G : Primordial.{u} C} : 
--- MAP' (fun ((x1,x2),x3) => (x1,(x2,x3))) (sum_AC (sum_AA a b) G) = sum_AC a (sum_AC b G) := match hg : IsAtom G with 
--- |true => sorry
+-- MAP' (fun ((x1,x2),x3) => (x1,(x2,x3))) (sum_AC (sum_AA a b) G) = sum_AC a (sum_AC b G) := by
+--   match hg : IsAtom G with 
+-- |true => 
+--       simp
+--       have t1: IsAtom (sum_AA a b).1 := sorry
+--       have h' : (fun x => sum_AC (sum_AA a b) x) G = (sum_AC (sum_AA a b) G):= by simp only; rfl;
+--       have t2: IsAtom (sum_AC (sum_AA a b) G) := by
+--         rw [←h']
+--         have temp := @MAP'_IsAtom _ ((A×B)×C) (fun x : C => ((Sum.getLeft (moves_or a.1) a.2,Sum.getLeft (moves_or b.1) b.2),x)) G 
+--         sorry
+--       unfold MAP'
+--       split_ifs with h
+--       ·     
+--         unfold sum_AC
+--         simp only [hg, MAP'_mk_atom, moves_or_mk_atom_id, Sum.getLeft_inl]
+--         unfold MAP'
+--         simp
+--         _
+--       ·contradiction
+        
 -- |false => sorry
 
 
