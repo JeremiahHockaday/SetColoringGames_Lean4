@@ -282,10 +282,25 @@ def LOption {A : Type} : (Primordial.{u} A) → (Primordial.{u} A) → Prop := f
 /-- x is a right option of the game y -/
 def ROption {A : Type} : (Primordial.{u} A) → (Primordial.{u} A) → Prop := fun x y => x ∈ (moves.{u} y) right
 
+
 /-- x is an option of y iff x is a left or right option of y. -/
 theorem option_iff_lroption {x y : Primordial A} : option x y ↔ LOption x y ∨ ROption x y := by 
   dsimp [option, LOption, ROption]
   simp only [Set.mem_iUnion, Player.exists]
+
+/-- the following lemmas are useful for termination proofs. -/
+@[simp]
+lemma left_memMoves {A : Type} {x L : Primordial A} : L∈ xᴸ → L∈ ⋃ p, x.moves p := by
+  intro hl
+  simp only [Set.mem_iUnion, Player.exists]
+  left
+  exact hl
+@[simp]
+lemma right_memMoves {A : Type} {x L : Primordial A} : L∈ xᴿ → L∈ ⋃ p, x.moves p := by
+  intro hr
+  simp only [Set.mem_iUnion, Player.exists]
+  right
+  exact hr
   
 
 /-- A proper subposition of a (composite) game y is any game reachable by a nonempty sequence of left and right moves. -/
@@ -563,42 +578,8 @@ theorem recOn_eq {motive : Primordial A → Sort*} (x : Primordial A)
 of definitions using well-founded recursion on `IGame`. -/
 macro "Primordial_wf" config:Lean.Parser.Tactic.optConfig : tactic =>
   `(tactic| all_goals solve_by_elim $config
-    [Prod.Lex.left, Prod.Lex.right, PSigma.Lex.left, PSigma.Lex.right,
+    [Prod.Lex.left, Prod.Lex.right, PSigma.Lex.left, PSigma.Lex.right, left_memMoves, right_memMoves,
     Subposition.of_mem_moves, Subposition.trans, Subtype.prop] )
-
-
-
--- /-- Given a function f: A→ B and a game G:Primordial A returns a game of type Primordial B, the result of applying the map -/
--- noncomputable def MAP {A B : Type} (f : A → B) : Primordial.{u} A → Primordial.{u} B := 
---   let motive : Primordial.{u} A -> Sort (u+2) := λ _ => Primordial.{u} B
---   let ind : Π x, (Π y : Primordial A, Π _ : Subposition y x, Primordial.{u} B) → Primordial.{u} B :=
---     (λ x IH =>
---     match val : @moves_or A x with
---     | Sum.inl a => 
---       mk_atom (f a)
---     | Sum.inr st =>       
---       let Ops := {y // y.Subposition x}
---       -- this is the image of the function that adds two smaller games together, over the set of left (resp. right) options.
---       have smallOps : Small.{u} Ops := small_setOf_subposition x
---       -- st' is the sum of these two games, defined inductively.
---       let st' := λ p:Player =>  Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val p))
---       --- proofs of smallness
---       have hl : Small.{u} (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val left))):= by 
---         have l_small := (st.property left)
---         let X : Set (Ops) := (λ y: Ops => y.1 ∈ (st.val left))
---         have : Small.{u} X := by infer_instance
---         infer_instance
---       have hr : Small.{u} (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val right))):= by
---         have l_small := (st.property right)
---         let X : Set (Ops) := (λ y: Ops => y.1 ∈ (st.val right))
---         have : Small.{u} X := by infer_instance
---         infer_instance
---     -- This is the value that should be returned
---     (@ofSets B st' hl hr).val
---     )
---   (λ G => sRecOn G ind)
-
--- #check casesSC
 
 
 
@@ -609,24 +590,6 @@ noncomputable def MAP' (f : A → B) (x : Primordial.{u} A) : Primordial B :=
   if hx : IsAtom.{u} x then
     mk_atom (f (Sum.getLeft (moves_or x) hx))
   else 
-    have hl : ∀ L∈ xᴸ, Subposition L x := by
-      intro L hl
-      unfold Subposition
-      rw [Relation.transGen_iff]
-      rw [option_iff_lroption]
-      left
-      left
-      dsimp [LOption]
-      exact hl
-    have hr : ∀ R∈ xᴿ, Subposition R x := by
-      intro R hr
-      unfold Subposition
-      rw [Relation.transGen_iff]
-      rw [option_iff_lroption]
-      left
-      right
-      dsimp [LOption]
-      exact hr
     have lsmall : Small.{u} (Set.range fun z : xᴸ ↦ MAP' f z) := by
       infer_instance
     have rsmall : Small.{u} (Set.range fun z : xᴿ ↦ MAP' f z) := by 
@@ -679,24 +642,21 @@ lemma image_member {A B : Type} {f : A → B} {x : Primordial.{u} A} {p : Player
         simp only [MAP'_IsAtom]
         exact h
     unfold MAP'
+    simp only [h,↓reduceDIte]
+    have this: IsAtom.{u} (mk_atom (f ((moves_or x).getLeft h))).1 := by congr
+    have this' :=isEmpty_iff.mp (Atom_no_options _ this)
+    have this'':= isEmpty_iff.mp (Atom_no_options _ h)
     constructor
     · intro h'
---      dsimp [mk_atom,moves_or] at h'
-      simp [h,↓reduceDIte] at h'
-      have : IsAtom.{u} (mk_atom (f ((moves_or x).getLeft h))).1 := by congr
-      simp only at this
-      have this' :=Atom_no_options _ this
       exfalso
       contradiction
-    · intro ⟨w,⟨hwi,hwf⟩⟩
-      have := Atom_no_options _ h
-      exfalso
-      rw [isEmpty_iff] at this
+    · intro ⟨w,⟨_,_⟩⟩
       have this': w.option x := by 
         dsimp [option]
         simp only [Set.mem_iUnion]
         use p
-      exact this ⟨w,this'⟩
+      exfalso
+      exact this'' ⟨w,this'⟩
   |false => 
     have h1 : ¬IsAtom (MAP' f x) := by
         simp only [MAP'_IsAtom,h, Bool.false_eq_true, not_false_eq_true]
@@ -705,7 +665,7 @@ lemma image_member {A B : Type} {f : A → B} {x : Primordial.{u} A} {p : Player
       unfold MAP' at h'
       simp only [h,Bool.false_eq_true, ↓reduceDIte, moves_ofSets, Player.cases] at h'
       cases p <;> (simp only [Set.mem_range, Subtype.exists, exists_prop] at h' ; exact h')
-    · intro ⟨w,⟨hwi,hwf⟩⟩
+    · intro ⟨w,⟨_,_⟩⟩
       unfold MAP'
       simp only [h,Bool.false_eq_true, ↓reduceDIte]
       cases p <;> (simp only [moves_ofSets, Player.cases, Set.mem_range, Subtype.exists, exists_prop]; use w)
@@ -720,7 +680,9 @@ theorem MAP_comp {A B C : Type} (f : A → B) (g : B → C) (x : Primordial.{u} 
     |false =>
        have h1 : ¬IsAtom (MAP' f x) := by
         simp only [MAP'_IsAtom,h, Bool.false_eq_true, not_false_eq_true]
-       -- after unfolding the definition of MAP', this is the only thing that remains to be shown. It relies on the recursive definition of MAP', so regrettably we cannot extract the proof of this to a lemma.
+       -- after unfolding the definition of MAP', this is the only thing that remains to be shown. 
+       --It relies recursively on MAP_comp, 
+       --so (regrettably) we cannot extract the proof of this to a lemma.
        have hrange :∀ p:Player, Set.range (fun z: moves (MAP' f x) p => MAP' g z) = Set.range (fun z: moves x p => MAP' (g∘f) z) :=by 
         intro p
         ext t
@@ -754,15 +716,64 @@ theorem MAP_comp {A B C : Type} (f : A → B) (g : B → C) (x : Primordial.{u} 
 termination_by x
 decreasing_by Primordial_wf
 
-noncomputable def sum_AA : Atom A→ Atom B → Atom (A×B) := λ a b => 
-let a' :=(Sum.getLeft (@moves_or A a) a.2);
-let b' :=(Sum.getLeft (@moves_or B b) b.2);
-(mk_atom (a',b'))
+-- noncomputable def sum_AA : Atom A→ Atom B → Atom (A×B) := λ a b => 
+-- let a' :=(Sum.getLeft (@moves_or A a) a.2);
+-- let b' :=(Sum.getLeft (@moves_or B b) b.2);
+-- (mk_atom (a',b'))
 
 
-noncomputable def sum_AC (g : Atom A) (H : Primordial.{u} B) : Primordial.{u} (A×B) := 
-  MAP' (λ b:B => ((Sum.getLeft (@moves_or A g) g.2),b)) H
-  
+-- noncomputable def sum_AC (g : Atom A) (H : Primordial.{u} B) : Primordial.{u} (A×B) := 
+--   MAP' (λ b:B => ((Sum.getLeft (@moves_or A g) g.2),b)) H
+
+noncomputable def old_sum {A B : Type} (x : Primordial A) (y : Primordial B) : Primordial (A×B) :=
+if hx : IsAtom x then
+  if hy : IsAtom y then 
+    mk_atom (Sum.getLeft (moves_or x) hx,Sum.getLeft (moves_or y) hy)
+  else 
+    MAP' (λ b:B => ((Sum.getLeft (moves_or x) hx),b)) y
+else
+  if hy:IsAtom y then 
+    MAP' (λ a:A => (a,(Sum.getLeft (moves_or y) hy))) x
+  else 
+    !{ (Set.range fun z : xᴸ ↦ old_sum z.val y)∪(Set.range fun z : yᴸ ↦ old_sum x z.val)|(Set.range fun z : xᴿ ↦ old_sum z.val y)∪(Set.range fun z : yᴿ ↦ old_sum x z.val)}
+termination_by (x,y)
+decreasing_by Primordial_wf
+
+noncomputable def sum {A B : Type} (x : Primordial A) (y : Primordial B) : Primordial (A×B) :=
+if hxy:IsAtom x ∧IsAtom y then mk_atom (Sum.getLeft (moves_or x) hxy.left,Sum.getLeft (moves_or y) hxy.right)
+else !{ (Set.range fun z : xᴸ ↦ sum z.val y)∪(Set.range fun z : yᴸ ↦ sum x z.val)|(Set.range fun z : xᴿ ↦ sum z.val y)∪(Set.range fun z : yᴿ ↦ sum x z.val)}
+termination_by (x,y)
+decreasing_by Primordial_wf
+
+theorem old_sum_eq_sum {A B : Type} (x : Primordial A) (y : Primordial B): old_sum x y = sum x y := by
+match hx:IsAtom x, hy:IsAtom y with
+|true,true => 
+  unfold old_sum sum
+  simp only [hx,  hy, and_self,↓reduceDIte]
+|true,false =>
+  unfold old_sum sum MAP'
+  simp [hx, hy,Bool.false_eq_true, and_false,↓reduceDIte]
+  sorry
+|false,true =>   
+  unfold old_sum sum MAP'
+  simp [hx, hy,Bool.false_eq_true, and_true,↓reduceDIte]
+  sorry
+
+|false,false => 
+  unfold old_sum sum MAP'
+  simp only [hx, hy,Bool.false_eq_true, and_self,↓reduceDIte]
+  congr
+  · simp [old_sum_eq_sum]
+  ·simp [old_sum_eq_sum]
+  ·simp [old_sum_eq_sum]
+  ·simp [old_sum_eq_sum]
+termination_by (x,y)
+decreasing_by Primordial_wf
+
+
+
+
+
 instance ProductAssoc {A B C : Type} : ((A×B)×C)≃(A×(B×C)):= 
   let f :((A×B)×C)→(A×(B×C)) := fun ((x1,x2),x3) => (x1,(x2,x3))
   let g :(A×(B×C))→((A×B)×C) := fun (x1,(x2,x3)) => ((x1,x2),x3)
