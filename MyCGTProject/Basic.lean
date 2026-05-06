@@ -745,15 +745,25 @@ else !{ (Set.range fun z : xᴸ ↦ sum z.val y)∪(Set.range fun z : yᴸ ↦ s
 termination_by (x,y)
 decreasing_by Primordial_wf
 
+/-- pairwise subposition relation useful in proving things via joint induction (ideally) -/
+def pairSubposition {A B : Type} := Prod.GameAdd (@Subposition A) (@Subposition B)
+
+
+lemma old_sum_eq_sum_fst {A B : Type} (x : Primordial A)  (y : Primordial B) (hy:IsAtom y): old_sum x y = sum x y := by
+match hx:IsAtom x with
+|true => sorry
+|false =>sorry
+
+
 theorem old_sum_eq_sum {A B : Type} (x : Primordial A) (y : Primordial B): old_sum x y = sum x y := by
 match hx:IsAtom x, hy:IsAtom y with
 |true,true => 
   unfold old_sum sum
   simp only [hx,  hy, and_self,↓reduceDIte]
 |true,false =>
-  unfold old_sum sum MAP'
-  simp [hx, hy,Bool.false_eq_true, and_false,↓reduceDIte]
   sorry
+   
+  
 |false,true =>   
   unfold old_sum sum MAP'
   simp [hx, hy,Bool.false_eq_true, and_true,↓reduceDIte]
@@ -763,10 +773,14 @@ match hx:IsAtom x, hy:IsAtom y with
   unfold old_sum sum MAP'
   simp only [hx, hy,Bool.false_eq_true, and_self,↓reduceDIte]
   congr
-  · simp [old_sum_eq_sum]
-  ·simp [old_sum_eq_sum]
-  ·simp [old_sum_eq_sum]
-  ·simp [old_sum_eq_sum]
+  · ext t
+    rw [old_sum_eq_sum]
+  · ext t
+    rw [old_sum_eq_sum]
+  · ext t
+    rw [old_sum_eq_sum]
+  · ext t
+    rw [old_sum_eq_sum]
 termination_by (x,y)
 decreasing_by Primordial_wf
 
