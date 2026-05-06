@@ -380,7 +380,9 @@ theorem acc_all {A : Type} (x : Primordial A) : Acc option x := by
     
   | inr g =>
     let ⟨st,hst⟩ := g;
+    -- proof that the game made from a composite form is composite, even when acted on by the map Subtype.val.
     have hcomp : IsComp (QPF.Fix.mk (PrimordialFunctor.map A Subtype.val (Sum.inr ⟨st, hst⟩))) := by congr;
+    -- we can pull the "Sum.inr" out of the following thing.
     have hpull:  PrimordialFunctor.map A (Subtype.val) (Sum.inr ⟨st, hst⟩) = @Sum.inr A (_) (⟨(λ p => Set.image Subtype.val (st p)),tempName st hst⟩) := by congr;
     constructor
     rintro y hy
@@ -396,7 +398,7 @@ theorem acc_all {A : Type} (x : Primordial A) : Acc option x := by
     exact w.property
     
     
-/-
+
 theorem subposition_wf {A : Type} : @WellFounded (Primordial A) Subposition := by
   refine ⟨fun x => Acc.transGen ?x⟩
   exact acc_all x
@@ -406,25 +408,16 @@ instance {A : Type} : WellFoundedRelation (Primordial A) := ⟨Subposition, inst
 
 theorem Subposition.irrefl {A : Type} (x : Primordial A) : ¬Subposition x x := _root_.irrefl x
 
-theorem option.irrefl {A : Type} (x : Primordial A) : ¬option x x := by 
-  apply @casesSC A (λ x => ¬x.option x)
-  · intro a 
-    unfold option
-    simp only [Set.mem_iUnion, not_exists]
-    intro ha
-    have h' := Comp_nAtom_iff.mp ha
-    have h'' := a.2
-    contradiction
-  · intro g ho 
-    have h' := Subposition.irrefl g.1
-    dsimp only [Subposition] at h'
-    rw [Relation.transGen_iff] at h'
-    simp only [not_or, not_exists, not_and] at h'
-    obtain ⟨y,z⟩ := h'
-    contradiction
+theorem option.irrefl {A : Type} (x : Primordial A) : ¬option x x := by
+   have h1 := Subposition.irrefl x
+   dsimp [Subposition] at h1
+   rw [Relation.transGen_iff] at h1
+   simp at h1
+   exact h1.left
 
-theorem self_notMem_moves (A : Type) (p : Player) (x : Comp A) : x.val ∉ moves x p :=  
-  fun hx => Subposition.irrefl x.1 (.of_mem_moves x.2 (by 
+
+theorem self_notMem_moves (A : Type) (p : Player) (x : Primordial A) : x ∉ moves x p :=  
+  fun hx => Subposition.irrefl x (Subposition.of_mem_moves (by 
   simp only [Set.mem_iUnion]
   use p))
 
@@ -433,7 +426,7 @@ theorem self_notMem_moves (A : Type) (p : Player) (x : Comp A) : x.val ∉ moves
 def WSubposition {A : Type} (x y : Primordial A) : Prop := x = y ∨ Subposition x y
 
 theorem subposition_iff_exists {A : Type} {x y : Primordial A} : Subposition x y ↔
-   ∃ h : (y∈ Comp A),∃ p:Player, ∃ z ∈  moves (⟨y,h⟩) p, WSubposition x z := by
+   ∃ p:Player, ∃ z ∈  moves y p, WSubposition x z := by
    unfold WSubposition Subposition
    rw [Relation.transGen_iff]
    dsimp only [option]
@@ -442,23 +435,23 @@ theorem subposition_iff_exists {A : Type} {x y : Primordial A} : Subposition x y
    · intro hmp
      cases hmp with
      | inl hl => 
-       let ⟨a,⟨i,hi⟩⟩ := hl
-       use a,i,x
+       let ⟨i,hi⟩ := hl
+       use i,x
        constructor
        · exact hi
        · simp only [true_or]
      | inr hr => 
-       let ⟨a,⟨bl,⟨hy,⟨i,hi⟩⟩⟩⟩ := hr
-       use hy,i,a
+       have ⟨a,⟨bl,⟨i,hi⟩⟩⟩ := hr
+       use i,a
        constructor
        · exact hi
        · simp only [bl, or_true]
-   · intro hmpr 
-     let ⟨a,i,c,⟨d1,d2⟩⟩  := hmpr
+   · intro hmpr
+     obtain ⟨i,c,⟨d1,d2⟩⟩ := hmpr
      cases d2 with 
      | inl hl => 
        left
-       use a, i
+       use  i
        rw [←hl] at d1
        exact d1
      | inr hr => 
@@ -466,7 +459,8 @@ theorem subposition_iff_exists {A : Type} {x y : Primordial A} : Subposition x y
        use c
        constructor
        · exact hr
-       · use a,i
+       · use i
+
 
 @[simp, refl] theorem WSubposition.refl {A : Type} (x : Primordial A) : WSubposition x x := .inl rfl
 theorem WSubposition.rfl {A : Type} {x : Primordial A} : WSubposition x x := .refl x
@@ -525,8 +519,8 @@ alias WSubposition.antisymm := wsubposition_antisymm
 theorem wsubposition_antisymm_iff {A : Type} {x y : Primordial A} : x = y ↔ WSubposition x y ∧ WSubposition y x :=
   ⟨fun h => h ▸ ⟨.rfl, .rfl⟩, fun h => h.1.antisymm h.2⟩
 
-theorem subposition_of_wsubposition_of_ne {A : Type} {x y : Primordial A} (hw : WSubposition x y) (hne : x ≠ y) :
-    Subposition x y := hw.resolve_left hne
+theorem subposition_of_wsubposition_of_ne {A : Type} {x y : Primordial A} (hw : WSubposition x y) (hne : x ≠ y) : Subposition x y := hw.resolve_left hne
+
 
 theorem subposition_of_wsubposition_not_wsubposition {A : Type} {x y : Primordial A}
     (hxy : WSubposition x y) (hyx : ¬WSubposition y x) : Subposition x y :=
@@ -537,10 +531,10 @@ theorem subposition_iff_wsubposition_not_wsubposition {A : Type} {x y : Primordi
   ⟨fun hxy => ⟨hxy.wsubposition, hxy.not_wsubposition⟩,
     fun h => subposition_of_wsubposition_not_wsubposition h.1 h.2⟩
 
-theorem WSubposition.of_mem_moves {A : Type} {x y : Primordial A} {hy : y ∈ Comp A} (h : x ∈ ⋃ p, (moves.{u} ⟨y, hy⟩) p) :
+theorem WSubposition.of_mem_moves {A : Type} {x y : Primordial A} (h : x ∈ ⋃ p, (moves.{u} y) p) :
     WSubposition x y := by
     right
-    exact (Subposition.of_mem_moves hy h)
+    exact (Subposition.of_mem_moves h)
 
 @[elab_as_elim]
 noncomputable def sRecOn {motive : Primordial A → Sort*} (x : Primordial A) (ind : Π x, (Π y : Primordial A, Π _ : Subposition y x, motive y) → motive x) : motive x := 
@@ -574,37 +568,37 @@ macro "Primordial_wf" config:Lean.Parser.Tactic.optConfig : tactic =>
 
 
 
-/-- Given a function f: A→ B and a game G:Primordial A returns a game of type Primordial B, the result of applying the map -/
-noncomputable def MAP {A B : Type} (f : A → B) : Primordial.{u} A → Primordial.{u} B := 
-  let motive : Primordial.{u} A -> Sort (u+2) := λ _ => Primordial.{u} B
-  let ind : Π x, (Π y : Primordial A, Π _ : Subposition y x, Primordial.{u} B) → Primordial.{u} B :=
-    (λ x IH =>
-    match val : @moves_or A x with
-    | Sum.inl a => 
-      mk_atom (f a)
-    | Sum.inr st =>       
-      let Ops := {y // y.Subposition x}
-      -- this is the image of the function that adds two smaller games together, over the set of left (resp. right) options.
-      have smallOps : Small.{u} Ops := small_setOf_subposition x
-      -- st' is the sum of these two games, defined inductively.
-      let st' := λ p:Player =>  Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val p))
-      --- proofs of smallness
-      have hl : Small.{u} (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val left))):= by 
-        have l_small := (st.property left)
-        let X : Set (Ops) := (λ y: Ops => y.1 ∈ (st.val left))
-        have : Small.{u} X := by infer_instance
-        infer_instance
-      have hr : Small.{u} (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val right))):= by
-        have l_small := (st.property right)
-        let X : Set (Ops) := (λ y: Ops => y.1 ∈ (st.val right))
-        have : Small.{u} X := by infer_instance
-        infer_instance
-    -- This is the value that should be returned
-    (@ofSets B st' hl hr).val
-    )
-  (λ G => sRecOn G ind)
+-- /-- Given a function f: A→ B and a game G:Primordial A returns a game of type Primordial B, the result of applying the map -/
+-- noncomputable def MAP {A B : Type} (f : A → B) : Primordial.{u} A → Primordial.{u} B := 
+--   let motive : Primordial.{u} A -> Sort (u+2) := λ _ => Primordial.{u} B
+--   let ind : Π x, (Π y : Primordial A, Π _ : Subposition y x, Primordial.{u} B) → Primordial.{u} B :=
+--     (λ x IH =>
+--     match val : @moves_or A x with
+--     | Sum.inl a => 
+--       mk_atom (f a)
+--     | Sum.inr st =>       
+--       let Ops := {y // y.Subposition x}
+--       -- this is the image of the function that adds two smaller games together, over the set of left (resp. right) options.
+--       have smallOps : Small.{u} Ops := small_setOf_subposition x
+--       -- st' is the sum of these two games, defined inductively.
+--       let st' := λ p:Player =>  Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val p))
+--       --- proofs of smallness
+--       have hl : Small.{u} (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val left))):= by 
+--         have l_small := (st.property left)
+--         let X : Set (Ops) := (λ y: Ops => y.1 ∈ (st.val left))
+--         have : Small.{u} X := by infer_instance
+--         infer_instance
+--       have hr : Small.{u} (Set.image (λ y: Ops => IH y.val y.property) (λ y: Ops => y.1 ∈ (st.val right))):= by
+--         have l_small := (st.property right)
+--         let X : Set (Ops) := (λ y: Ops => y.1 ∈ (st.val right))
+--         have : Small.{u} X := by infer_instance
+--         infer_instance
+--     -- This is the value that should be returned
+--     (@ofSets B st' hl hr).val
+--     )
+--   (λ G => sRecOn G ind)
 
-#check casesSC
+-- #check casesSC
 
 
 
@@ -615,8 +609,7 @@ noncomputable def MAP' (f : A → B) (x : Primordial.{u} A) : Primordial B :=
   if hx : IsAtom.{u} x then
     mk_atom (f (Sum.getLeft (moves_or x) hx))
   else 
-    have h: IsComp x := Sum.not_isLeft.mp hx 
-    have hl : ∀ L∈ ⟨x,h⟩ᴸ, Subposition L x := by
+    have hl : ∀ L∈ xᴸ, Subposition L x := by
       intro L hl
       unfold Subposition
       rw [Relation.transGen_iff]
@@ -624,8 +617,8 @@ noncomputable def MAP' (f : A → B) (x : Primordial.{u} A) : Primordial B :=
       left
       left
       dsimp [LOption]
-      use h
-    have hr : ∀ R∈ ⟨x,h⟩ᴿ, Subposition R x := by
+      exact hl
+    have hr : ∀ R∈ xᴿ, Subposition R x := by
       intro R hr
       unfold Subposition
       rw [Relation.transGen_iff]
@@ -633,12 +626,27 @@ noncomputable def MAP' (f : A → B) (x : Primordial.{u} A) : Primordial B :=
       left
       right
       dsimp [LOption]
-      use h
-    have lsmall : Small.{u} (Set.range fun z : ⟨x, h⟩ᴸ ↦ MAP' f z) := by
+      exact hr
+    have lsmall : Small.{u} (Set.range fun z : xᴸ ↦ MAP' f z) := by
       infer_instance
-    have rsmall : Small.{u} (Set.range fun z : ⟨x, h⟩ᴿ ↦ MAP' f z) := by 
+    have rsmall : Small.{u} (Set.range fun z : xᴿ ↦ MAP' f z) := by 
       infer_instance
-    !{ Set.range (fun z : ⟨x, h⟩ᴸ ↦ MAP' f z)|Set.range (fun z : ⟨x, h⟩ᴿ ↦ MAP' f z)}
+    !{ Set.range (fun (z : xᴸ) ↦ MAP' f z)|Set.range (fun (z : xᴿ) ↦ MAP' f z)}
+--    have lsmall : Small.{u} (Set.image (fun z : Primordial A ↦ MAP' f z) (xᴸ))  := by
+--      infer_instance
+--    have rsmall : Small.{u} (Set.image (fun z : Primordial A ↦ MAP' f z) (xᴿ)) := by 
+--      infer_instance
+--    have lsmall : Small.{u,u+1} ({w:Primordial B | ∃ z∈ xᴸ, w=MAP' f z})  := by
+--      have this: Small.{u,u+1} (Set.range fun z : xᴸ ↦ MAP' f z) := by infer_instance
+--      have that : (Set.range fun z : xᴸ ↦ MAP' f z) ≃ {w:Primordial B | ∃ z∈ xᴸ, w=MAP' f z} := sorry
+--      apply ((small_congr that).mp this)-
+--    have rsmall : Small.{u} ({w:Primordial B | ∃ z: xᴿ, w=MAP' f z}) := sorry
+
+
+--    !{ (Set.image (fun z : Primordial A ↦ MAP' f z) (xᴸ))|(Set.image (fun z : Primordial A ↦ MAP' f z) (xᴿ))}
+-- {w:Primordial B | z∈ xᴸ ∧ w=MAP' f z}
+
+--    !{ {w:Primordial B | ∃ z: xᴸ, w=MAP' f z}|{w:Primordial B | ∃ z: xᴿ, w=MAP' f z}}
 termination_by x
 decreasing_by Primordial_wf
 
@@ -668,6 +676,22 @@ instance ProductAssoc {A B C : Type} : ((A×B)×C)≃(A×(B×C)):=
       simp only[Function.comp_apply] at hfg
       exact hfg⟩
 
+lemma temp {A B C : Type} (f : A → B) (g : B → C) (x : Primordial A) (p : Player) : Set.range (fun z: moves (MAP' f x) p => MAP' g z) = Set.range (fun z: moves x p => MAP' (g∘f) z) := by
+  ext t
+  constructor
+  · intro h
+    obtain ⟨a,b⟩ := h
+    simp at b
+    dsimp [Set.range]
+    have this : ∃ w: moves x p, MAP' f w = a := sorry
+    obtain ⟨w1,w2⟩ := this
+    use w1
+    _    
+    
+     
+       
+  · _
+
 theorem MAP_comp (f : A → B) (g : B → C) (x : Primordial.{u} A) : MAP' g (MAP' f x) = MAP' (g∘f) x := by
   match h: IsAtom x with
     |true =>
@@ -679,82 +703,99 @@ theorem MAP_comp (f : A → B) (g : B → C) (x : Primordial.{u} A) : MAP' g (MA
       unfold MAP'
       have h1 : ¬IsAtom (MAP' f x) := sorry
       have h2 : ¬IsAtom (MAP' (g∘f) x) := sorry
+      simp only [h1,h, Bool.false_eq_true, ↓reduceDIte]
+      let fun1 (p:Player) := (fun z: moves (MAP' f x) p => MAP' g z)
+      let fun2 (p:Player) := (fun z: moves x p => MAP' (g∘f) z)
+      have hrange :∀ p:Player, Set.range (fun z: moves (MAP' f x) p => MAP' g z) = Set.range (fun z: moves x p => MAP' (g∘f) z) :=by 
+        intro p
+        ext t
+        constructor
+        · intro h
+          obtain ⟨a,b⟩ := h
+          simp at b
+          dsimp [Set.range]
+          have this : ∃ w: moves x p, MAP' f w = a := sorry
+          obtain ⟨w1,w2⟩ := this
+          use w1
+          
+        · _    
+  
+      simp [hrange]
       
-      sorry
-      
-noncomputable def sum_AA : Atom A→ Atom B → Atom (A×B) := λ a b => 
-let a' :=(Sum.getLeft (@moves_or A a) a.2);
-let b' :=(Sum.getLeft (@moves_or B b) b.2);
-(mk_atom (a',b'))
+
+-- noncomputable def sum_AA : Atom A→ Atom B → Atom (A×B) := λ a b => 
+-- let a' :=(Sum.getLeft (@moves_or A a) a.2);
+-- let b' :=(Sum.getLeft (@moves_or B b) b.2);
+-- (mk_atom (a',b'))
 
 
-noncomputable def sum_AC (g : Atom A) (H : Primordial.{u} B) : Primordial.{u} (A×B) := 
-  let g' :A := (Sum.getLeft (@moves_or A g) g.2)
-  let f := (λ b:B => (g',b))
-  MAP' f H
+-- noncomputable def sum_AC (g : Atom A) (H : Primordial.{u} B) : Primordial.{u} (A×B) := 
+--   let g' :A := (Sum.getLeft (@moves_or A g) g.2)
+--   let f := (λ b:B => (g',b))
+--   MAP' f H
   
 
-example {A B C : Type} {a : Atom.{u} A} {b : Atom.{u} B} {G : Primordial.{u} C} : 
-MAP' (fun ((x1,x2),x3) => (x1,(x2,x3))) (sum_AC (sum_AA a b) G) = sum_AC a (sum_AC b G) := match hg : IsAtom G with 
-|true => sorry
-|false => sorry
+-- example {A B C : Type} {a : Atom.{u} A} {b : Atom.{u} B} {G : Primordial.{u} C} : 
+-- MAP' (fun ((x1,x2),x3) => (x1,(x2,x3))) (sum_AC (sum_AA a b) G) = sum_AC a (sum_AC b G) := match hg : IsAtom G with 
+-- |true => sorry
+-- |false => sorry
 
 
 
-noncomputable def test1 {A} (x : Primordial A) : Nat :=
-match IsAtom x with 
-| true => 0
-| false=> 1
-noncomputable def test2 {A} (x : Primordial A) : Prop :=
-match IsAtom x with 
-| true => True
-| false=> ∀ y :Primordial A, option y x -> test2 y
-termination_by x
-decreasing_by Primordial_wf
+-- noncomputable def test1 {A} (x : Primordial A) : Nat :=
+-- match IsAtom x with 
+-- | true => 0
+-- | false=> 1
+-- noncomputable def test2 {A} (x : Primordial A) : Prop :=
+-- match IsAtom x with 
+-- | true => True
+-- | false=> ∀ y :Primordial A, option y x -> test2 y
+-- termination_by x
+-- decreasing_by Primordial_wf
 
-noncomputable def test3 {A} (x : Primordial A) : Primordial A :=
-if  h : IsAtom x then
-   mk_atom (Sum.getLeft (moves_or x) h)
-else
- have h' : IsComp x := by
-   simp at h
-   simp [h]
- mk_comp (Sum.getRight (moves_or x) h')
+-- noncomputable def test3 {A} (x : Primordial A) : Primordial A :=
+-- if  h : IsAtom x then
+--    mk_atom (Sum.getLeft (moves_or x) h)
+-- else
+--  have h' : IsComp x := by
+--    simp at h
+--    simp [h]
+--  mk_comp (Sum.getRight (moves_or x) h')
 
-example {A} (x : Primordial A) : x = test3 x := by
-match h: IsAtom x with
-|true =>
-      dsimp [test3]
-      simp [h]
-      dsimp [mk_atom]
-      dsimp [moves_or]
-      simp [QPF.Fix.mk_dest]
-|false =>
-      dsimp [test3]
-      simp [h]
-      dsimp [mk_comp]
-      dsimp [moves_or]
-      simp [QPF.Fix.mk_dest]
+-- example {A} (x : Primordial A) : x = test3 x := by
+-- match h: IsAtom x with
+-- |true =>
+--       dsimp [test3]
+--       simp [h]
+--       dsimp [mk_atom]
+--       dsimp [moves_or]
+--       simp [QPF.Fix.mk_dest]
+-- |false =>
+--       dsimp [test3]
+--       simp [h]
+--       dsimp [mk_comp]
+--       dsimp [moves_or]
+--       simp [QPF.Fix.mk_dest]
 
 
-example {A B} (x : Atom A) (y : Atom B) : test1 x.1 = test1 y.1 := by 
-dsimp [test1] 
-have hx :IsAtom x.1 := x.2
-have hy :IsAtom y.1 := y.2
-simp [hx,hy]
+-- example {A B} (x : Atom A) (y : Atom B) : test1 x.1 = test1 y.1 := by 
+-- dsimp [test1] 
+-- have hx :IsAtom x.1 := x.2
+-- have hy :IsAtom y.1 := y.2
+-- simp [hx,hy]
 
-theorem test10 {A} (x : Primordial A) : test2 x  := by
-match hx:IsAtom x with
-| true =>
-  unfold test2
-  simp only [hx]
-| false =>
-  unfold test2
-  simp only [hx]
-  intro y hy
-  exact test10 y
-termination_by x
-decreasing_by Primordial_wf
+-- theorem test10 {A} (x : Primordial A) : test2 x  := by
+-- match hx:IsAtom x with
+-- | true =>
+--   unfold test2
+--   simp only [hx]
+-- | false =>
+--   unfold test2
+--   simp only [hx]
+--   intro y hy
+--   exact test10 y
+-- termination_by x
+-- decreasing_by Primordial_wf
 
 
 end Primordial
