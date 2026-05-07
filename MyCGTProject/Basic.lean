@@ -740,6 +740,7 @@ decreasing_by Primordial_wf
 /-- pairwise subposition relation useful in proving things via joint induction (ideally) -/
 def pairSubposition {A B : Type} := Prod.GameAdd (@Subposition A) (@Subposition B)
 
+/- The sum function is the same as this map when the second component is atomic. -/
 lemma old_sum_to_MAP'_fst {A B : Type} (x : Primordial A) (y : Primordial B) (hy : IsAtom y) : old_sum x y =  MAP' (λ a:A => (a,(Sum.getLeft (moves_or y) hy))) x := by
 match hx:IsAtom x with
 |true=> 
@@ -748,8 +749,8 @@ match hx:IsAtom x with
 |false =>
   unfold old_sum MAP'
   simp [hx, hy,Bool.false_eq_true, ↓reduceDIte]
-  
 
+/-- The two sum functions agree when their second component is atomic -/  
 lemma old_sum_eq_sum_fst {A B : Type} (x : Primordial A) (y : Primordial B) (hy : IsAtom y) : old_sum x y = sum x y := by
 match hx:IsAtom x with
 |true =>   
@@ -773,45 +774,46 @@ match hx:IsAtom x with
     · intro h
       match h with
       |Or.inl h' =>
-        obtain ⟨a,⟨ha1,ha2⟩⟩:= h'
-        use a
-        constructor
-        · exact ha1
-        · rw [← old_sum_to_MAP'_fst _ _ hy]
-          rw [old_sum_eq_sum_fst _ _ hy]
-          exact ha2
+          obtain ⟨a,⟨ha1,ha2⟩⟩:= h'
+          use a
+          constructor
+          · exact ha1
+          · rw [← old_sum_to_MAP'_fst _ _ hy]
+            rw [old_sum_eq_sum_fst _ _ hy]
+            exact ha2
       |Or.inr h'=> 
-        obtain ⟨b,⟨hb1,hb2⟩⟩ := h'
-        exfalso
-        exact isEmpty_iff.mp (Atom_no_options _ hy) ⟨b,left_memMoves hb1⟩
+          obtain ⟨b,⟨hb1,hb2⟩⟩ := h'
+          exfalso
+          exact isEmpty_iff.mp (Atom_no_options _ hy) ⟨b,left_memMoves hb1⟩
   · ext t
     simp only [Set.mem_range, Subtype.exists, exists_prop, Set.mem_union]
     constructor
-    · intro ⟨z,⟨ha1,ha2⟩⟩
-      left
-      use z
-      rw [←old_sum_eq_sum_fst _ _ hy]
-      constructor
-      · exact ha1
-      · rw [old_sum_to_MAP'_fst _ _ hy]
-        exact ha2
+    ·   intro ⟨z,⟨ha1,ha2⟩⟩
+        left
+        use z
+        rw [←old_sum_eq_sum_fst _ _ hy]
+        constructor
+        ·   exact ha1
+        ·   rw [old_sum_to_MAP'_fst _ _ hy]
+            exact ha2
     · intro h
       match h with
       |Or.inl h' =>
-        obtain ⟨a,⟨ha1,ha2⟩⟩:= h'
-        use a
-        constructor
-        · exact ha1
-        · rw [← old_sum_to_MAP'_fst _ _ hy]
-          rw [old_sum_eq_sum_fst _ _ hy]
-          exact ha2
+          obtain ⟨a,⟨ha1,ha2⟩⟩:= h'
+          use a
+          constructor
+          · exact ha1
+          · rw [← old_sum_to_MAP'_fst _ _ hy]
+            rw [old_sum_eq_sum_fst _ _ hy]
+            exact ha2
       |Or.inr h'=> 
-        obtain ⟨b,⟨hb1,hb2⟩⟩ := h'
-        exfalso
-        exact isEmpty_iff.mp (Atom_no_options _ hy) ⟨b,right_memMoves hb1⟩
+          obtain ⟨b,⟨hb1,hb2⟩⟩ := h'
+          exfalso
+          exact isEmpty_iff.mp (Atom_no_options _ hy) ⟨b,right_memMoves hb1⟩
 termination_by x
 decreasing_by Primordial_wf
 
+/- The sum function is the same as this map when the first component is atomic. -/
 lemma old_sum_to_MAP'_snd {A B : Type} (x : Primordial A) (hx : IsAtom x) (y : Primordial B) : old_sum x y =  MAP' (λ b:B => ((Sum.getLeft (moves_or x) hx),b)) y := by
 match hy : IsAtom y with
 |true=> 
@@ -821,7 +823,7 @@ match hy : IsAtom y with
   unfold old_sum MAP'
   simp [hx, hy,Bool.false_eq_true, ↓reduceDIte]
   
-
+/-- The two sum functions agree when their first component is atomic -/  
 lemma old_sum_eq_sum_snd {A B : Type} (x : Primordial A) (hx : IsAtom x) (y : Primordial B) : old_sum x y = sum x y := by
 match hy:IsAtom y with
 |true =>   
@@ -911,10 +913,6 @@ match hx:IsAtom x, hy:IsAtom y with
     rw [old_sum_eq_sum]
 termination_by (x,y)
 decreasing_by Primordial_wf
-
-
-
-
 
 instance ProductAssoc {A B C : Type} : ((A×B)×C)≃(A×(B×C)):= 
   let f :((A×B)×C)→(A×(B×C)) := fun ((x1,x2),x3) => (x1,(x2,x3))
