@@ -298,6 +298,9 @@ lemma right_memMoves {A : Type} {x L : Primordial A} : L∈ xᴿ → L∈ ⋃ p,
   right
   exact hr  
 
+@[simp] lemma leftORright_memMoves {A : Type} {x x' : Primordial A} : x'∈ xᴸ ∨ x'∈ xᴿ ↔ x'∈ ⋃ p, x.moves p := by
+  simp
+
 /-- A proper subposition of a (composite) game y is any game reachable by a nonempty sequence of left and right moves. -/
 def Subposition {A : Type} : (Primordial A) -> (Primordial A) -> Prop := Relation.TransGen option
 
@@ -737,8 +740,29 @@ else !{ (Set.range fun z : xᴸ ↦ sum z.val y)∪(Set.range fun z : yᴸ ↦ s
 termination_by (x,y)
 decreasing_by Primordial_wf
 
-/-- pairwise subposition relation useful in proving things via joint induction (ideally) -/
-def pairSubposition {A B : Type} := Prod.GameAdd (@Subposition A) (@Subposition B)
+/-- The sum of two games is atomic iff both games are atomic. -/
+lemma sum_IsAtom {A B : Type} {a : Primordial A} {b : Primordial B} : (IsAtom (sum a b)=true) ↔ IsAtom a ∧ IsAtom b := by
+  cases ha : IsAtom a
+  · unfold sum
+    simp only [ha, Bool.false_eq_true, false_and, ↓reduceDIte,]
+    dsimp [ofSets]
+    simp
+  · cases hb : IsAtom b
+    · unfold sum
+      simp only [ha,hb, Bool.false_eq_true, and_false, ↓reduceDIte,]
+      dsimp [ofSets]
+      simp
+    · unfold sum
+      simp [ha,hb]
+      dsimp [IsAtom]
+      simp
+
+
+
+
+
+
+
 
 /- The sum function is the same as this map when the second component is atomic. -/
 lemma old_sum_to_MAP'_fst {A B : Type} (x : Primordial A) (y : Primordial B) (hy : IsAtom y) : old_sum x y =  MAP' (λ a:A => (a,(Sum.getLeft (moves_or y) hy))) x := by
@@ -759,7 +783,7 @@ match hx:IsAtom x with
 |false =>
   unfold old_sum sum MAP'
   simp only [hx, hy,Bool.false_eq_true, and_true,↓reduceDIte]  
-  congr
+  congr <;> 
   · ext t
     simp only [Set.mem_range, Subtype.exists, exists_prop, Set.mem_union]
     constructor
@@ -784,32 +808,7 @@ match hx:IsAtom x with
       |Or.inr h'=> 
           obtain ⟨b,⟨hb1,hb2⟩⟩ := h'
           exfalso
-          exact isEmpty_iff.mp (Atom_no_options _ hy) ⟨b,left_memMoves hb1⟩
-  · ext t
-    simp only [Set.mem_range, Subtype.exists, exists_prop, Set.mem_union]
-    constructor
-    ·   intro ⟨z,⟨ha1,ha2⟩⟩
-        left
-        use z
-        rw [←old_sum_eq_sum_fst _ _ hy]
-        constructor
-        ·   exact ha1
-        ·   rw [old_sum_to_MAP'_fst _ _ hy]
-            exact ha2
-    · intro h
-      match h with
-      |Or.inl h' =>
-          obtain ⟨a,⟨ha1,ha2⟩⟩:= h'
-          use a
-          constructor
-          · exact ha1
-          · rw [← old_sum_to_MAP'_fst _ _ hy]
-            rw [old_sum_eq_sum_fst _ _ hy]
-            exact ha2
-      |Or.inr h'=> 
-          obtain ⟨b,⟨hb1,hb2⟩⟩ := h'
-          exfalso
-          exact isEmpty_iff.mp (Atom_no_options _ hy) ⟨b,right_memMoves hb1⟩
+          exact isEmpty_iff.mp (Atom_no_options _ hy) ⟨b,leftORright_memMoves.mp (by simp [hb1])⟩
 termination_by x
 decreasing_by Primordial_wf
 
@@ -831,8 +830,8 @@ match hy:IsAtom y with
   simp only [hx,  hy, and_self,↓reduceDIte]
 |false =>
   unfold old_sum sum MAP'
-  simp only [hx, hy,Bool.false_eq_true, ↓reduceDIte]  
-  congr
+  simp only [hx, hy,Bool.false_eq_true, true_and, ↓reduceDIte]  
+  congr <;>
   · ext t
     simp only [Set.mem_range, Subtype.exists, exists_prop, Set.mem_union]
     constructor
@@ -849,32 +848,7 @@ match hy:IsAtom y with
       |Or.inl h'=> 
         obtain ⟨b,⟨hb1,hb2⟩⟩ := h'
         exfalso
-        exact isEmpty_iff.mp (Atom_no_options _ hx) ⟨b,left_memMoves hb1⟩
-      |Or.inr h' =>
-        obtain ⟨a,⟨ha1,ha2⟩⟩:= h'
-        use a
-        constructor
-        · exact ha1
-        · rw [← old_sum_to_MAP'_snd _ hx _]
-          rw [old_sum_eq_sum_snd _ hx _]
-          exact ha2
-  · ext t
-    simp only [Set.mem_range, Subtype.exists, exists_prop, Set.mem_union]
-    constructor
-    · intro ⟨z,⟨ha1,ha2⟩⟩
-      right
-      use z
-      rw [←old_sum_eq_sum_snd _ hx _]
-      constructor
-      · exact ha1
-      · rw [old_sum_to_MAP'_snd _ hx _]
-        exact ha2
-    · intro h
-      match h with
-      |Or.inl h'=> 
-        obtain ⟨b,⟨hb1,hb2⟩⟩ := h'
-        exfalso
-        exact isEmpty_iff.mp (Atom_no_options _ hx) ⟨b,right_memMoves hb1⟩
+        exact isEmpty_iff.mp (Atom_no_options _ hx) ⟨b,leftORright_memMoves.mp (by simp [hb1])⟩
       |Or.inr h' =>
         obtain ⟨a,⟨ha1,ha2⟩⟩:= h'
         use a
@@ -890,26 +864,23 @@ decreasing_by Primordial_wf
 theorem old_sum_eq_sum {A B : Type} (x : Primordial A) (y : Primordial B) : old_sum x y = sum x y := by
 match hx:IsAtom x, hy:IsAtom y with
 |true,true => 
-  unfold old_sum sum
-  simp only [hx,  hy, and_self,↓reduceDIte]
---
-|true,false =>
-  exact old_sum_eq_sum_snd _ hx _
---
-|false,true =>  
-   exact old_sum_eq_sum_fst _ _ hy
---
+    unfold old_sum sum
+    simp only [hx,  hy, and_self,↓reduceDIte]
+|true,false => -- x is atomic, y is composite.
+    exact old_sum_eq_sum_snd _ hx _
+|false,true => -- x is composite, y is atomic. 
+     exact old_sum_eq_sum_fst _ _ hy
 |false,false => 
   unfold old_sum sum MAP'
   simp only [hx, hy,Bool.false_eq_true, and_self,↓reduceDIte]
-  congr
-  · ext t
-    rw [old_sum_eq_sum]
-  · ext t
-    rw [old_sum_eq_sum]
-  · ext t
-    rw [old_sum_eq_sum]
-  · ext t
+  -- `congr` opens four goals, that prove that 
+  --each of the corresponding sets are equivalent 
+  --(we have {A ∪ B| C ∪ D} = {A' ∪ B'| C' ∪ D'}, 
+  --so this sets out to prove that A=A',B=B', et cetera). 
+  --Then `<;>` applies the tactic that follows it to each 
+  --of the goals generated by `congr`. 
+  congr <;> 
+  · ext t; 
     rw [old_sum_eq_sum]
 termination_by (x,y)
 decreasing_by Primordial_wf
@@ -917,10 +888,8 @@ decreasing_by Primordial_wf
 instance ProductAssoc {A B C : Type} : ((A×B)×C)≃(A×(B×C)):= 
   let f :((A×B)×C)→(A×(B×C)) := fun ((x1,x2),x3) => (x1,(x2,x3))
   let g :(A×(B×C))→((A×B)×C) := fun (x1,(x2,x3)) => ((x1,x2),x3)
-  have hfg : f∘ g = id := by
-    congr
-  have hgf :  g∘f = id := by
-    congr 
+  have hfg : f∘ g = id := by congr;
+  have hgf :  g∘f = id := by congr;
   ⟨f, g, 
     by
       unfold Function.LeftInverse
@@ -936,8 +905,42 @@ instance ProductAssoc {A B C : Type} : ((A×B)×C)≃(A×(B×C)):=
 
 
 
--- example {A B C : Type} {a : Atom.{u} A} {b : Atom.{u} B} {G : Primordial.{u} C} : 
--- MAP' (fun ((x1,x2),x3) => (x1,(x2,x3))) (sum_AC (sum_AA a b) G) = sum_AC a (sum_AC b G) := by
+theorem sum_assoc {A B C : Type} {a : Primordial A} {b : Primordial B} {c : Primordial.{u} C} : 
+MAP' (fun ((x1,x2),x3) => (x1,(x2,x3))) (sum (sum a b) c) = sum a (sum b c) := by
+match ha : IsAtom a, hb : IsAtom b, hc : IsAtom c with
+|true, true, true => 
+  unfold MAP' sum
+  dsimp [IsAtom]
+  simp only [sum_IsAtom, ha, hb, and_self, hc, ↓reduceDIte]
+  simp only [moves_or_mk_atom_id, Sum.isLeft_inl, ↓reduceDIte,Sum.getLeft_inl]
+  unfold sum
+  simp only [ha, hb, hc, and_self, ↓reduceDIte] 
+  simp only [moves_or_mk_atom_id, Sum.getLeft_inl]
+|true, true, false => 
+  unfold MAP' sum
+  dsimp [IsAtom]
+  simp only [sum_IsAtom, ha, hb, and_self, hc, Bool.false_eq_true, and_false, ↓reduceDIte]
+  dsimp [ofSets]
+  congr
+  · ext t
+    constructor
+    · intro ⟨x,hx⟩
+      simp at hx
+      sorry
+    . sorry
+  · sorry
+  
+  -- simp only [moves_or_mk_atom_id, Sum.isLeft_inl, ↓reduceDIte,Sum.getLeft_inl]
+  -- unfold sum
+  -- simp only [ha, hb, hc, and_self, ↓reduceDIte] 
+  -- simp only [moves_or_mk_atom_id, Sum.getLeft_inl]
+
+|true, false, true => sorry
+|true, false, false => sorry
+|false, true, true => sorry
+|false, true, false => sorry
+|false, false, true => sorry
+|false, false, false => sorry
 --   match hg : IsAtom G with 
 -- |true => 
 --       simp
