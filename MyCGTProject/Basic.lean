@@ -35,16 +35,16 @@ noncomputable abbrev IsComp {A : Type} (x : Primordial A) := Sum.isRight (moves_
 
 noncomputable def Atom (A : Type) := {x: Primordial A | IsAtom x}
 noncomputable def Comp (A : Type) := {x : Primordial A | IsComp x}
-    
-noncomputable def mk_atom {A : Type} : A → Atom A := fun a => 
-@Subtype.mk (Primordial A) (λ g => Sum.isLeft (moves_or g))
-(@QPF.Fix.mk (PrimordialFunctor A) (QPF_PrimordialFunctor A) (@Sum.inl A {st : Player → Set (Primordial A) // ∀ p, Small (st p)} a))
- (by congr)
 
-noncomputable def mk_comp {A : Type} (s : {st : Player → Set (Primordial A) // ∀ p, Small (st p)}) : Comp A :=
-  @Subtype.mk (Primordial A) (λ g => Sum.isRight (moves_or g))
-    (@QPF.Fix.mk (PrimordialFunctor A) (QPF_PrimordialFunctor A) (@Sum.inr A {st : Player → Set (Primordial A) // ∀ p, Small (st p)} s))
-    (by congr)
+noncomputable def mk_atom {A : Type} : A → Primordial A := fun a => 
+(@QPF.Fix.mk (PrimordialFunctor A) (QPF_PrimordialFunctor A) (@Sum.inl A {st : Player → Set (Primordial A) // ∀ p, Small (st p)} a))
+
+lemma mk_atom_IsAtom {A : Type} {x : A} : IsAtom (mk_atom x) := by congr
+
+noncomputable def mk_comp {A : Type} (s : {st : Player → Set (Primordial A) // ∀ p, Small (st p)}) : Primordial A := (@QPF.Fix.mk (PrimordialFunctor A) (QPF_PrimordialFunctor A) (@Sum.inr A {st : Player → Set (Primordial A) // ∀ p, Small (st p)} s))
+
+lemma mk_comp_IsComp {A : Type} {x : {st : Player → Set (Primordial A) // ∀ p, Small (st p)}} : IsComp (mk_comp x) := by congr
+
 theorem mk_moves_or_id {A : Type} (x : Primordial A) : QPF.Fix.mk (moves_or x) = x:= by 
   dsimp [moves_or]
   rw [QPF.Fix.mk_dest]
@@ -52,13 +52,11 @@ theorem mk_moves_or_id {A : Type} (x : Primordial A) : QPF.Fix.mk (moves_or x) =
 
 theorem mk_atom_moves_or_id {A : Type} (x : Atom A) : mk_atom (Sum.getLeft (moves_or x.1) x.2) = x := by 
   unfold mk_atom
-  congr
   rw [Sum.inl_getLeft, mk_moves_or_id]
 
 @[simp]
 theorem mk_comp_moves_or_id {A : Type} (x : Comp A) : mk_comp (Sum.getRight (moves_or x.1) x.2) = x := by 
   unfold mk_comp
-  congr
   rw [Sum.inr_getRight, mk_moves_or_id]
 
 @[simp]
@@ -66,32 +64,15 @@ theorem moves_or_mk_comp_id {A : Type} (st : Player → Set (Primordial A)) (h :
   dsimp [moves_or,mk_comp]
   rw [QPF.Fix.dest_mk] 
 
-
 @[simp]
 theorem moves_or_mk_atom_id {A : Type} (x : A) : moves_or (mk_atom x) = Sum.inl x
 := by 
   dsimp [moves_or,mk_atom]
   rw [QPF.Fix.dest_mk] 
 
+
+
 -- Special Games
-noncomputable def casesSC {A : Type} {α : (Primordial A) → Sort*} (x : Primordial A) (ha : ∀ a : Atom A, α a.1) (hc : ∀ g : Comp A, α g.1) : α x := by
-  cases h : Sum.isRight (moves_or x)
-  ·have h1 : (moves_or x).isLeft := Sum.isRight_eq_false.mp h;
-   exact (ha ⟨x,h1⟩)
-  ·exact (hc ⟨x,h⟩)
-
-noncomputable def casesSC' {A : Type} {α : (Primordial A) → Sort*} (x : Primordial A) (ha : ∀ a :A, α (mk_atom a)) (hc : ∀ G : {st : Player → Set (Primordial A) // ∀ p, Small (st p)}, α (mk_comp G)) : α x := by
-  cases h : IsComp x
-  · have this := ha (Sum.getLeft (moves_or x) (Sum.isRight_eq_false.mp h))
-    dsimp [mk_atom, moves_or] at this
-    simp only [Sum.inl_getLeft, QPF.Fix.mk_dest] at this
-    exact this
-  · have this := hc (Sum.getRight (moves_or x) (h))
-    dsimp [mk_comp, moves_or] at this
-    simp only [Sum.inr_getRight, QPF.Fix.mk_dest] at this
-    exact this
-
-
 theorem Atom_nComp_iff {A : Type} {x : Primordial A} : IsAtom x=true ↔ ¬(IsComp x=true) := by
   simp only [Bool.not_eq_true, Sum.isRight_eq_false]
 
@@ -186,8 +167,6 @@ instance small_moves {A : Type} (p : Player) (x : Primordial.{u} A) : Small.{u} 
    infer_instance
 
 
-  
-
 
 
 @[simp]
@@ -277,17 +256,16 @@ theorem ofSets_inj {A : Type} {s₁ s₂ t₁ t₂ : Set (Primordial A)} [Small 
 -- Because of the diffference between composite and atomic games, we must define subpositions very carefully.
 
 /-- option x y : y is composite and x is in the left or right set of the game y. -/
-def option {A : Type} : (Primordial.{u} A) → (Primordial.{u} A) → Prop := fun x y =>  x ∈ ⋃ p, (moves.{u} y) p
+abbrev option {A : Type} : (Primordial.{u} A) → (Primordial.{u} A) → Prop := fun x y =>  x ∈ ⋃ p, (moves.{u} y) p
 
 /-- x is a left option of the game y -/
-def LOption {A : Type} : (Primordial.{u} A) → (Primordial.{u} A) → Prop := fun x y => x ∈ (moves.{u} y) left
+abbrev LOption {A : Type} : (Primordial.{u} A) → (Primordial.{u} A) → Prop := fun x y => x ∈ (moves.{u} y) left
 
 /-- x is a right option of the game y -/
-def ROption {A : Type} : (Primordial.{u} A) → (Primordial.{u} A) → Prop := fun x y => x ∈ (moves.{u} y) right
+abbrev ROption {A : Type} : (Primordial.{u} A) → (Primordial.{u} A) → Prop := fun x y => x ∈ (moves.{u} y) right
 
 /-- x is an option of y iff x is a left or right option of y. -/
 theorem option_iff_lroption {x y : Primordial A} : option x y ↔ LOption x y ∨ ROption x y := by 
-  dsimp [option, LOption, ROption]
   simp only [Set.mem_iUnion, Player.exists]
 
 /-- the following lemmas are useful for termination proofs. -/
@@ -366,8 +344,6 @@ instance small_setOf_options {A : Type} : ∀ x : (Primordial.{u} A),  Small.{u 
       intro ⟨x,xh⟩ ⟨y,yh⟩ h'
       unfold f at h'
       congr
-      apply Subtype.ext_iff.mp at h'
-      exact h';
     exact small_of_injective (h3);
   · have h1 := Atom_no_options x h;
     simp only [@small_isEmpty {y : Primordial A // y.option x} h1]
@@ -381,8 +357,7 @@ instance small_setOf_subposition {A : Type} (x : Primordial.{u} A) : Small.{u} {
 lemma tempName {α : Type (u + 1)} {q : α → Prop}
 (st : Player → Set (Subtype q))
 (hst : st ∈ {s: Player → Set (Subtype q)|∀ p, Small.{u} (s p)}) : (λ p => Set.image Subtype.val (st p)) ∈ {s: Player→Set α| ∀ p, Small.{u} (s p)} := by 
-  simp only [Player.forall, Set.mem_setOf_eq]
-  simp only [Player.forall, Set.mem_setOf_eq] at hst
+  simp only [Player.forall, Set.mem_setOf_eq] at hst ⊢
   let ⟨_,_⟩ := hst
   constructor
   · exact subtype_set_small (q) (st Player.left)
@@ -437,8 +412,9 @@ theorem Subposition.irrefl {A : Type} (x : Primordial A) : ¬Subposition x x := 
 theorem option.irrefl {A : Type} (x : Primordial A) : ¬option x x := by
    have h1 := Subposition.irrefl x
    dsimp [Subposition] at h1
-   rw [Relation.transGen_iff] at h1
-   simp at h1
+   rw [Relation.transGen_iff] at h1   
+   rw [or_iff_not_and_not] at h1
+   apply of_not_not at h1
    exact h1.left
 
 
@@ -585,6 +561,8 @@ theorem recOn_eq {motive : Primordial A → Sort*} (x : Primordial A)
     subposition_wf.fix_eq ..
 
 
+
+
 /-- Discharges proof obligations of the form `⊢ Subposition ..` arising in termination proofs
 of definitions using well-founded recursion on `IGame`. -/
 macro "Primordial_wf" config:Lean.Parser.Tactic.optConfig : tactic =>
@@ -597,12 +575,75 @@ macro "Primordial_wf" config:Lean.Parser.Tactic.optConfig : tactic =>
 
 /-- returns the dual of a game. If a game is atomic, does nothing. -/
 noncomputable def Dual {A : Type} (x : Primordial A) : Primordial A :=
-if hx: IsAtom x then 
+if IsAtom x then 
   x
 else
-  !{Set.range (fun (z : xᴿ) ↦ Dual z)|Set.range (fun (z : xᴸ) ↦ Dual z)}
+  !{fun p=>Set.range (fun (z : x.moves (-p)) ↦ Dual z)}
 termination_by x
-decreasing_by Primordial_wf
+decreasing_by 
+  cases p
+  Primordial_wf
+
+lemma Dual_IsAtom {A : Type} {x : Primordial A} : IsAtom (Dual x) = IsAtom x:= by
+  unfold Dual
+  cases h:IsAtom x
+  case true =>
+       rw [if_pos rfl]
+       exact h
+  case false =>
+       rw [if_neg (by simp)]
+       dsimp [ofSets, IsAtom]
+       rw [moves_or_mk_comp_id]
+       rw [Sum.isLeft_inr]
+
+theorem Dual_selfInverse {A : Type} {x : Primordial A} : Dual ( Dual x) = x := by
+  unfold Dual 
+  cases h:IsAtom x 
+  case true =>
+       have: IsAtom x.Dual = true := by rw [Dual_IsAtom]; exact h
+       rw [if_pos this]
+       unfold Dual
+       rw [if_pos h]
+  case false =>
+       have: IsAtom x.Dual = false := by rw [Dual_IsAtom]; exact h
+       rw [if_neg (by simp [this])]
+       rw [← ofSets_moves x (by simp [h,Comp_nAtom_iff])]
+       congr
+       funext p
+       ext t
+       constructor
+       · intro ⟨⟨t',ht1⟩,ht2⟩
+         simp only at ht2 
+         rw [ofSets_moves _ (by simp [h, Comp_nAtom_iff])] at ht1
+         conv at ht1 =>
+           unfold Dual
+         rw [if_neg (by simp [h])] at ht1
+         rw [← ht2]
+         rw [moves_ofSets] at ht1
+         rw [Set.mem_range] at ht1
+         rw [Subtype.exists, neg_neg] at ht1 
+         obtain ⟨a,hoa,ha⟩ := ht1
+         rw [← ha]
+         rw [Dual_selfInverse]
+         congr
+       · intro ht
+         rw [Set.mem_range]
+         rw [Subtype.exists] 
+         rw [ofSets_moves _ (by simp [h, Comp_nAtom_iff])]
+         use Dual t
+         have : t.Dual ∈ x.Dual.moves (-p) := by 
+              conv =>
+                left
+                unfold Dual
+                rw [if_neg (by simp [h])]
+                rw [moves_ofSets]
+              rw [Set.mem_range, Subtype.exists, neg_neg]
+              use t,ht
+         use this
+         simp only
+         exact Dual_selfInverse
+termination_by x
+decreasing_by all_goals {cases p <;>Primordial_wf}
 
 
 /-- given a function on the underlying sets A, B, this is the function from Primordial A to Primordial B that naturally arises. uses recursion -/
@@ -611,9 +652,11 @@ noncomputable def MAP (f : A → B) (x : Primordial.{u} A) : Primordial B :=
   if hx : IsAtom.{u} x then
     mk_atom (f (Sum.getLeft (moves_or x) hx))
   else 
-    !{ Set.range (fun (z : xᴸ) ↦ MAP f z)|Set.range (fun (z : xᴿ) ↦ MAP f z)}
+    !{(fun p:Player => Set.range (fun (z: moves x p) => MAP f z))}
 termination_by x
-decreasing_by Primordial_wf
+decreasing_by 
+  cases p
+  Primordial_wf
 
 @[simp] lemma MAP_mk_atom {A B} {f : A → B} (x : Primordial A) (hx : IsAtom x) :
   MAP f x = mk_atom (f (Sum.getLeft (moves_or x) hx)) := by
@@ -645,7 +688,7 @@ lemma image_member {A B : Type} {f : A → B} {x : Primordial.{u} A} {p : Player
         exact h
     unfold MAP
     simp only [h,↓reduceDIte]
-    have this: IsAtom.{u} (mk_atom (f ((moves_or x).getLeft h))).1 := by congr
+    have this:= @mk_atom_IsAtom.{u} _ (f ((moves_or x).getLeft h))
     have this' :=isEmpty_iff.mp (Atom_no_options _ this)
     have this'':= isEmpty_iff.mp (Atom_no_options _ h)
     constructor
@@ -665,12 +708,12 @@ lemma image_member {A B : Type} {f : A → B} {x : Primordial.{u} A} {p : Player
     constructor
     · intro h'
       unfold MAP at h'
-      simp only [h,Bool.false_eq_true, ↓reduceDIte, moves_ofSets, Player.cases] at h'
+      simp only [h,Bool.false_eq_true, ↓reduceDIte, moves_ofSets] at h'
       cases p <;> (simp only [Set.mem_range, Subtype.exists, exists_prop] at h' ; exact h')
     · intro ⟨w,⟨_,_⟩⟩
       unfold MAP
       simp only [h,Bool.false_eq_true, ↓reduceDIte]
-      cases p <;> (simp only [moves_ofSets, Player.cases, Set.mem_range, Subtype.exists, exists_prop]; use w)
+      cases p <;> (simp only [moves_ofSets, Set.mem_range, Subtype.exists, exists_prop]; use w)
 
 theorem MAP_comp {A B C : Type} (f : A → B) (g : B → C) (x : Primordial.{u} A) : MAP g (MAP f x) = MAP (g∘f) x := by
   match h: IsAtom x with
@@ -737,18 +780,26 @@ else
   if hy:IsAtom y then 
     MAP (λ a:A => (a,(Sum.getLeft (moves_or y) hy))) x
   else 
-    !{ (Set.range fun z : xᴸ ↦ old_sum z.val y)∪(Set.range fun z : yᴸ ↦ old_sum x z.val)|(Set.range fun z : xᴿ ↦ old_sum z.val y)∪(Set.range fun z : yᴿ ↦ old_sum x z.val)}
+    !{ (  fun p:Player => (Set.range fun (z : moves x p) ↦ old_sum z.val y)∪(Set.range fun (z : moves y p) ↦ old_sum x z.val)  )}
 termination_by (x,y)
-decreasing_by Primordial_wf
-
+decreasing_by 
+  cases p <;> Primordial_wf
+  cases p
+  Primordial_wf
+  
 noncomputable def sum {A B : Type} (x : Primordial A) (y : Primordial B) : Primordial (A×B) :=
 if hxy:IsAtom x ∧IsAtom y then mk_atom (Sum.getLeft (moves_or x) hxy.left,Sum.getLeft (moves_or y) hxy.right)
-else !{ (Set.range fun z : xᴸ ↦ sum z.val y)∪(Set.range fun z : yᴸ ↦ sum x z.val)|(Set.range fun z : xᴿ ↦ sum z.val y)∪(Set.range fun z : yᴿ ↦ sum x z.val)}
+else !{ (  fun p:Player => (Set.range fun (z : moves x p) ↦ sum z.val y)∪(Set.range fun (z : moves y p) ↦ sum x z.val)  )}
 termination_by (x,y)
-decreasing_by Primordial_wf
+decreasing_by 
+  cases p <;> Primordial_wf
+  cases p
+  Primordial_wf
 
+-- 
 noncomputable instance {A B : Type} : HAdd (Primordial A) (Primordial B) (Primordial (A×B)) where
-  hAdd := fun a b => sum a b
+  hAdd a b := sum a b
+
 
 @[simp] lemma sum_format {A B : Type} {a : Primordial A} {b : Primordial B} :  sum a b = a + b := by dsimp [HAdd.hAdd]
 
@@ -779,7 +830,6 @@ lemma sum_LOption {A B : Type} {x : Primordial (A × B)} {a : Primordial A} {b :
     unfold sum LOption at h
     rw [dif_neg t] at h
     rw [moves_ofSets] at h
-    rw [Player.cases] at h
     apply (Set.mem_union .. ).mp at h
     conv at h=> 
         left
@@ -821,8 +871,8 @@ lemma sum_LOption {A B : Type} {x : Primordial (A × B)} {a : Primordial A} {b :
       rw [s2]
       simp only [exists_prop]
       first 
-        |{left; use s; exact ⟨s1,rfl⟩}
-        |{right; use s; exact ⟨s1,rfl⟩}
+        |{left; use s}
+        |{right; use s}
 
 lemma sum_ROption {A B : Type} {x : Primordial (A × B)} {a : Primordial A} {b : Primordial B} : x.ROption (a+b) ↔ (∃ a':Primordial A, a'.ROption a ∧ x= (a'+b)) ∨ (∃ b':Primordial B, b'.ROption b ∧ x= (a+b')) := by
   constructor
@@ -879,82 +929,72 @@ lemma sum_ROption {A B : Type} {x : Primordial (A × B)} {a : Primordial A} {b :
       rw [s2]
       simp only [exists_prop]
       first 
-        |{left; use s; exact ⟨s1,rfl⟩}
-        |{right; use s; exact ⟨s1,rfl⟩}
+        |{left; use s}
+        |{right; use s}
 
+lemma sum_POption {A B : Type} {x : Primordial (A × B)} {a : Primordial A} {b : Primordial B} : ∀p:Player, (x∈ (a+b).moves p ↔ (∃ a':Primordial A, a'∈ a.moves p ∧ x= (a'+b)) ∨ (∃ b':Primordial B, b'∈ b.moves p ∧ x= (a+b'))) := by
+  intro p
+  cases p
+  · exact sum_LOption
+  · exact sum_ROption
 
 /-- if x is an option of a+b then either there exists y or z such that x= y+b or x = a+z, where y and z are options of a and b, respectively. -/
 lemma sum_option {A B : Type} {x : Primordial (A × B)} {a : Primordial A} {b : Primordial B} : x.option (a+b) ↔ (∃ a':Primordial A, a'.option a ∧ x= (a'+b)) ∨ (∃ b':Primordial B, b'.option b ∧ x= (a+b')) := by
--- turns option into LOption or ROption.
-  simp only [option_iff_lroption]
--- uses the previous two lemmas.
-  rw [sum_ROption]
-  rw [sum_LOption]
--- This rearranges the `or` statements on the lhs 
--- to make them easier to work with.
-  conv =>
-    left
-    rw [or_assoc]
-    conv => 
-      right
-      rw [or_comm]
-    rw [or_assoc]
-    rw [← or_assoc]
--- `iff` unfolding
-  constructor 
--- modus ponens
-  · intro h
-    cases h 
-    case inl h'=>
-          left
-          cases h'
-          case' inl h'' =>skip
-          case' inr h'' =>skip
-          all_goals 
-            obtain ⟨s,⟨s1,s2⟩⟩ := h''
-            use s
-            first |exact ⟨Or.inr s1,s2⟩|exact ⟨Or.inl s1,s2⟩
-    case inr h'=>
-          right
-          cases h'
-          case' inl h'' =>skip
-          case' inr h'' =>skip
-          all_goals 
-            obtain ⟨s,⟨s1,s2⟩⟩ := h''
-            use s
-            first |exact ⟨Or.inr s1,s2⟩|exact ⟨Or.inl s1,s2⟩
--- modus ponens reversed
-  · intro h
-    cases h
-    case' inl h' => 
-         left
-         obtain ⟨s,⟨s1,s2⟩⟩ := h'
-         cases s1
-         case' inl h''=> 
-               left;
-         case' inr h''=> 
-               right;
-         all_goals use s
-    case' inr h' => 
-         right
-         obtain ⟨s,⟨s1,s2⟩⟩ := h'
-         cases s1
-         case' inl h''=> 
-               right;
-         case' inr h''=> 
-               left;         
-         all_goals use s
+  dsimp only [option]
+  simp only [Set.mem_iUnion]
+  suffices (∃ i, x ∈ (a + b).moves i) ↔ ∃ i:Player, ((∃ a', (a' ∈ a.moves i) ∧ x = a' + b) ∨ ∃ b', (b' ∈ b.moves i) ∧ x = a + b') by {
+        simp only [this]
+        constructor
+        · intro ⟨p,h⟩
+          cases h
+          case inl h'=>
+              obtain ⟨a',ha⟩:= h'
+              left
+              use a'
+              exact ⟨by use p;exact ha.1 ,ha.2⟩
+          case inr h'=>
+              obtain ⟨a',ha⟩:= h'
+              right
+              use a'
+              exact ⟨by use p;exact ha.1 ,ha.2⟩
+        ·intro h
+         cases h
+         case inl h' =>
+           obtain ⟨a',ha⟩ := h'
+           have ⟨⟨p,_⟩,_⟩:= ha
+           use p
+           left
+           use a'
+         case inr h' =>
+           obtain ⟨a',ha⟩ := h'
+           have ⟨⟨p,_⟩,_⟩:= ha
+           use p
+           right
+           use a'}
+--
+  constructor
+  · intro ⟨i,h⟩
+    use i
+    exact (sum_POption i).mp h
+  · intro ⟨i,h⟩
+    use i
+    exact (sum_POption i).mpr h
+
+
 
 /- The sum function is the same as this map when the second component is atomic. -/
 lemma old_sum_to_MAP_fst {A B : Type} (x : Primordial A) (y : Primordial B) (hy : IsAtom y) : old_sum x y =  MAP (λ a:A => (a,(Sum.getLeft (moves_or y) hy))) x := by
 match hx:IsAtom x with
 |true=> 
   unfold old_sum MAP
-  simp only [hx, hy,↓reduceDIte]  
+  repeat rw [dif_pos hx]
+  rw [dif_pos hy]
 |false =>
   unfold old_sum MAP
-  simp [hx, hy,Bool.false_eq_true, ↓reduceDIte]
-
+  rw [Bool.eq_false_iff] at hx
+  rw [dif_neg hx]
+  rw [dif_pos hy]
+  
 /-- The two sum functions agree when their second component is atomic -/  
 lemma old_sum_eq_sum_fst {A B : Type} (x : Primordial A) (y : Primordial B) (hy : IsAtom y) : old_sum x y =  x + y := by
 match hx:IsAtom x with
@@ -967,7 +1007,7 @@ match hx:IsAtom x with
   unfold old_sum sum MAP
   simp only [hx, hy,Bool.false_eq_true, and_true,↓reduceDIte, sum_format]  
   congr <;> 
-  · ext t
+  · ext p
     simp only [Set.mem_range, Subtype.exists, exists_prop, Set.mem_union]
     constructor
     · intro ⟨z,⟨ha1,ha2⟩⟩
@@ -991,19 +1031,25 @@ match hx:IsAtom x with
       |Or.inr h'=> 
           obtain ⟨b,⟨hb1,hb2⟩⟩ := h'
           exfalso
-          exact isEmpty_iff.mp (Atom_no_options _ hy) ⟨b,leftORright_memMoves.mp (by simp only [hb1,true_or,or_true])⟩
+          exact isEmpty_iff.mp (Atom_no_options _ hy) ⟨b,leftORright_memMoves.mp (by cases p <;> simp only [hb1,true_or,or_true])⟩
 termination_by x
-decreasing_by Primordial_wf
+decreasing_by 
+  cases p <;> Primordial_wf
+  cases p
+  Primordial_wf
 
 /- The sum function is the same as this map when the first component is atomic. -/
 lemma old_sum_to_MAP_snd {A B : Type} (x : Primordial A) (hx : IsAtom x) (y : Primordial B) : old_sum x y =  MAP (λ b:B => ((Sum.getLeft (moves_or x) hx),b)) y := by
 match hy : IsAtom y with
 |true=> 
   unfold old_sum MAP
-  simp only [hx, hy,↓reduceDIte]  
+  rw [dif_pos hx]
+  repeat rw [dif_pos hy]
 |false =>
   unfold old_sum MAP
-  simp [hx, hy,Bool.false_eq_true, ↓reduceDIte]
+  rw [Bool.eq_false_iff] at hy
+  rw [dif_pos hx]
+  rw [dif_neg hy]
   
 /-- The two sum functions agree when their first component is atomic -/  
 lemma old_sum_eq_sum_snd {A B : Type} (x : Primordial A) (hx : IsAtom x) (y : Primordial B) : old_sum x y = x + y := by
@@ -1017,7 +1063,7 @@ match hy:IsAtom y with
   unfold old_sum sum MAP
   simp only [hx, hy,Bool.false_eq_true, true_and, ↓reduceDIte, sum_format]  
   congr <;>
-  · ext t
+  · ext p
     simp only [Set.mem_range, Subtype.exists, exists_prop, Set.mem_union]
     constructor
     · intro ⟨z,⟨ha1,ha2⟩⟩
@@ -1033,7 +1079,7 @@ match hy:IsAtom y with
       |Or.inl h'=> 
         obtain ⟨b,⟨hb1,hb2⟩⟩ := h'
         exfalso
-        exact isEmpty_iff.mp (Atom_no_options _ hx) ⟨b,leftORright_memMoves.mp (by simp [hb1])⟩
+        exact isEmpty_iff.mp (Atom_no_options _ hx) ⟨b,leftORright_memMoves.mp (by cases p <;>simp only [hb1, true_or,or_true])⟩
       |Or.inr h' =>
         obtain ⟨a,⟨ha1,ha2⟩⟩:= h'
         use a
@@ -1043,7 +1089,10 @@ match hy:IsAtom y with
           rw [old_sum_eq_sum_snd _ hx _]
           exact ha2
 termination_by y
-decreasing_by Primordial_wf
+decreasing_by
+  cases p <;> Primordial_wf
+  cases p
+  Primordial_wf
 
 
 theorem old_sum_eq_sum {A B : Type} (x : Primordial A) (y : Primordial B) : old_sum x y = x + y := by
@@ -1064,19 +1113,35 @@ match hx:IsAtom x, hy:IsAtom y with
   --(we have {A ∪ B| C ∪ D} = {A' ∪ B'| C' ∪ D'}, 
   --so this sets out to prove that A=A',B=B', et cetera). 
   --Then `<;>` applies the tactic that follows it to each 
-  --of the goals generated by `congr`. 
-  congr <;> 
-  · ext t 
-    rw [old_sum_eq_sum]
-    dsimp [HAdd.hAdd]
+  --of the goals generated by `congr`.
+  congr
+  ext p t
+  cases p 
+  all_goals
+    {
+      conv =>
+        lhs
+        lhs
+        conv =>
+          lhs
+          arg 1
+          ext z
+          rw [old_sum_eq_sum]
+        conv =>
+          rhs
+          arg 1
+          ext z
+          rw [old_sum_eq_sum]
+      dsimp [HAdd.hAdd]
+      rfl}
 termination_by (x,y)
 decreasing_by Primordial_wf
 
 instance ProductAssoc {A B C : Type} : ((A×B)×C)≃(A×(B×C)):= 
   let f :((A×B)×C)→(A×(B×C)) := fun ((x1,x2),x3) => (x1,(x2,x3))
   let g :(A×(B×C))→((A×B)×C) := fun (x1,(x2,x3)) => ((x1,x2),x3)
-  have hfg : f∘ g = id := by congr;
-  have hgf :  g∘f = id := by congr;
+  have hfg : f∘ g = id := by rfl;
+  have hgf :  g∘f = id := by rfl;
   ⟨f, g, 
     by
       unfold Function.LeftInverse
@@ -1100,251 +1165,64 @@ MAP (fun ((x1,x2),x3) => (x1,(x2,x3))) (a + b + c) = a + (b + c) := by
   unfold MAP
   cases habc : (IsAtom a)&&(IsAtom b)&&(IsAtom c)
   case true =>
+    simp only [Bool.and_eq_true] at habc
     have this':(IsAtom a = true ∧ IsAtom (b.sum c) = true) := by 
-      simp only [Bool.and_eq_true] at habc
       rw [sum_format]
       rw [sum_IsAtom]
-      simp only [habc]
-      exact ⟨.intro,⟨.intro,.intro⟩⟩
+      rw [← and_assoc]
+      exact habc
     have this'':(IsAtom (a.sum b) = true ∧ IsAtom c = true) := by
-      simp only [Bool.and_eq_true] at habc
       rw [sum_format]
       rw [sum_IsAtom]
-      simp only [habc]
-      exact ⟨⟨.intro,.intro⟩,.intro⟩
+      exact habc
     have this : IsAtom (sum (sum a b) c) := by 
-      repeat rw [sum_format, sum_IsAtom] at this''
+      rw [sum_format, sum_IsAtom] at this''
       repeat rw [sum_format, sum_IsAtom]
       exact this''
+    have this''':IsAtom a= true ∧ IsAtom b = true := ⟨habc.1.1,habc.1.2⟩
+    have this'''':IsAtom b= true ∧ IsAtom c = true := ⟨habc.1.2,habc.2⟩
+    --
     rw [dif_pos this]
     unfold sum
-    rw [dif_pos (this')]
-    congr
-    sorry
-  case false =>
-    have this':¬(IsAtom a = true ∧ IsAtom (b.sum c) = true) := by sorry
-    have this'':¬(IsAtom (a.sum b) = true ∧ IsAtom c = true) := by sorry
+    simp only [dif_pos (this')]
+    simp only [dif_pos (this'')]
+    unfold sum
+    simp only [dif_pos (this''')]
+    simp only [dif_pos (this'''')]
+    rfl
+  case' false =>
+    rw [Bool.eq_false_iff] at habc
+    rw [Ne] at habc
+    simp only [Bool.and_eq_true] at habc
+    have this':¬(IsAtom a = true ∧ IsAtom (b.sum c) = true) := by 
+      rw [sum_format]
+      rw [sum_IsAtom]
+      rw [and_assoc] at habc
+      exact habc
+    have this'':¬(IsAtom (a.sum b) = true ∧ IsAtom c = true) := by 
+      rw [sum_format]
+      rw [sum_IsAtom]
+      exact habc
     have this : ¬IsAtom (sum (sum a b) c) := by 
-      repeat rw [sum_format, sum_IsAtom] at this''
+      rw [sum_format, sum_IsAtom] at this''
       repeat rw [sum_format, sum_IsAtom]
       exact this''
     rw [dif_neg this]
     unfold sum
     rw [dif_neg (this')]
-    sorry
-  -- all_goals {
-  -- congr
-  -- · ext t
-  --   rw [Set.mem_union]
-  --   repeat rw [Set.mem_range]
-  --   constructor
-  --   · intro ⟨x,hx⟩
-  --     have this := sum_LOption.mp x.2
-  --     rw [sum_format]
-  --     repeat rw [Subtype.exists]
-  --     cases this 
-  --     case inl h' => 
-  --          obtain ⟨a',⟨ha1,ha2⟩⟩ := h'
-  --          apply sum_LOption.mp at ha1
-  --          cases ha1
-  --          case' inl h'' =>
-  --               obtain ⟨a'',⟨ha'1,ha'2⟩⟩ := h''
-  --               left
-  --               use a''
-  --               use ha'1
-  --          case' inr h'' =>
-  --               obtain ⟨b'',⟨ha'1,ha'2⟩⟩ := h''
-  --               right
-  --               use b''+ c
-  --               use sum_LOption.mpr <| Or.inl ⟨b'',⟨ha'1,rfl⟩⟩
-  --          -- we will need to use induction hypothesis here.
-  --          all_goals
-  --               rw [sum_format] 
-  --               rw [← sum_assoc',← ha'2, ← ha2]
-  --               exact hx
-  --     case inr h' =>
-  --          obtain ⟨c'',⟨ha1,ha2⟩⟩ := h'
-  --          right
-  --          use b + c''
-  --          use sum_LOption.mpr <| Or.inr ⟨c'',⟨ha1,rfl⟩⟩
-  --          rw [sum_format] 
-  --          rw [← sum_assoc']
-  --          conv at ha2 =>
-  --            rhs
-  --            lhs
-  --            rw [sum_format]
-  --          rw [← ha2]
-  --          exact hx  
-  --   · intro h
-  --     cases h
-  --     case inl h' => 
-  --       obtain ⟨⟨x,hal⟩,hx⟩ := h'
-  --       have :((x + b) + c).LOption ((a+b) +c) :=by
-  --         rw [sum_LOption]
-  --         left
-  --         use x + b
-  --         constructor
-  --         · rw [sum_LOption]
-  --           left
-  --           use x
-  --           exact ⟨hal,rfl⟩
-  --         · rfl  
-  --       use ⟨x + b + c,this⟩
-  --       rw [sum_assoc']
-  --       exact hx
-  --     case inr h' => 
-  --       obtain ⟨⟨x,hbcl⟩,hx⟩ := h'
-  --       have : x.LOption (b+c) := hbcl
-  --       rw [sum_LOption] at this 
-  --       cases this
-  --       case inl h'' => 
-  --         obtain ⟨b',⟨hb1,hb2⟩⟩ := h''
-  --         have : (a+b'+c).LOption (a+b+c) := by
-  --              rw [sum_LOption]
-  --              left
-  --              use a + b'
-  --              constructor
-  --              · rw [sum_LOption]
-  --                right
-  --                use b'
-  --              · rfl
-  --         use ⟨a + b' + c,this⟩
-  --         rw [sum_assoc',←hb2]
-  --         exact hx
-  --       case inr h'' => 
-  --         obtain ⟨c',⟨hc1,hc2⟩⟩ := h''
-  --         have : (a+b+c').LOption (a+b+c) := by
-  --              rw [sum_LOption]
-  --              right
-  --              use c'
-  --         use ⟨a + b + c',this⟩
-  --         rw [sum_assoc',←hc2]
-  --         exact hx
-  -- · ext t
-  --   rw [Set.mem_union]
-  --   repeat rw [Set.mem_range]
-  --   constructor
-  --   · intro ⟨x,hx⟩
-  --     have this: ROption x.1 ((a +b) + c) := by 
-  --       rw [ROption]
-  --       exact x.2
-  --     apply sum_ROption.mp at this
-  --     simp only [Subtype.exists, exists_prop, sum_format]
-  --     cases this 
-  --     case inl h' => 
-  --          obtain ⟨a',⟨ha1,ha2⟩⟩ := h'
-  --          apply sum_ROption.mp at ha1
-  --          cases ha1
-  --          case' inl h'' =>
-  --               obtain ⟨a'',⟨ha'1,ha'2⟩⟩ := h''
-  --               left
-  --               use a''
-  --               constructor
-  --               · exact ha'1
-  --          case' inr h'' =>
-  --               obtain ⟨b'',⟨ha'1,ha'2⟩⟩ := h''
-  --               right
-  --               use b''+ c
-  --               constructor
-  --               · exact sum_ROption.mpr <| Or.inl ⟨b'',⟨ha'1,rfl⟩⟩ 
-  --          -- we will need to use induction hypothesis here.
-  --          all_goals
-  --               rw [← sum_assoc']
-  --               rw [← ha'2, ← ha2]
-  --               exact hx
-  --               -- we will need to use induction hypothesis here.
-  --     case inr h' =>
-  --          obtain ⟨c'',⟨ha1,ha2⟩⟩ := h'
-  --          right
-  --          use b + c''
-  --          constructor
-  --          . exact sum_ROption.mpr <| Or.inr ⟨c'',⟨ha1,rfl⟩⟩ 
-  --          · rw [← sum_assoc']
-  --            rw [← ha2]
-  --            exact hx  
-  --   · intro h
-  --     cases h
-  --     case inl h' => 
-  --       obtain ⟨⟨x,hal⟩,hx⟩ := h'
-  --       have :((x + b) + c).ROption ((a+b) +c) :=by
-  --         rw [sum_ROption]
-  --         left
-  --         use x + b
-  --         constructor
-  --         · rw [sum_ROption]
-  --           left
-  --           use x
-  --           exact ⟨hal,rfl⟩
-  --         · rfl  
-  --       use ⟨x + b + c,this⟩
-  --       rw [sum_assoc']
-  --       exact hx
-  --     case inr h' => 
-  --       obtain ⟨⟨x,hbcl⟩,hx⟩ := h'
-  --       have : x.ROption (b+c) := hbcl
-  --       rw [sum_ROption] at this 
-  --       cases this
-  --       case inl h'' => 
-  --         obtain ⟨b',⟨hb1,hb2⟩⟩ := h''
-  --         have : (a+b'+c).ROption (a+b+c) := by
-  --              rw [sum_ROption]
-  --              left
-  --              use a + b'
-  --              constructor
-  --              · rw [sum_ROption]
-  --                right
-  --                use b'
-  --              · rfl
-  --         use ⟨a + b' + c,this⟩
-  --         rw [sum_assoc',←hb2]
-  --         exact hx
-  --       case inr h'' => 
-  --         obtain ⟨c',⟨hc1,hc2⟩⟩ := h''
-  --         have : (a+b+c').ROption (a+b+c) := by
-  --              rw [sum_ROption]
-  --              right
-  --              use c'
-  --         use ⟨a + b + c',this⟩
-  --         rw [sum_assoc',←hc2]
-  --         exact hx
-  -- }
-termination_by (a,b,c)
-decreasing_by Primordial_wf
-
-theorem sum_assoc {A B C : Type} {a : Primordial A} {b : Primordial B} {c : Primordial.{u} C} : 
-MAP (fun ((x1,x2),x3) => (x1,(x2,x3))) (a + b + c) = a + (b + c) := by
-repeat rw [← sum_format]
-match ha : IsAtom a, hb : IsAtom b, hc : IsAtom c with
-|true, true, true => 
-  unfold MAP sum
-  dsimp [IsAtom]
-  simp only [sum_format,sum_IsAtom]
-  simp only [ ha, hb, and_self, hc, ↓reduceDIte]
-  simp only [moves_or_mk_atom_id, Sum.isLeft_inl, ↓reduceDIte,Sum.getLeft_inl]
-  dsimp [HAdd.hAdd]  
-  unfold sum
-  simp only [ha, hb, hc, and_self, ↓reduceDIte] 
-  simp only [moves_or_mk_atom_id, Sum.getLeft_inl]
-|true, true, false => 
-  unfold MAP sum
-  dsimp [IsAtom]
-  simp only [sum_format,sum_IsAtom, ha, hb, and_self, hc, Bool.false_eq_true, and_false, ↓reduceDIte]
-  dsimp [ofSets]
-  congr
-  · ext t
+    simp only
+    congr
+    ext p t
     rw [Set.mem_union]
     repeat rw [Set.mem_range]
     constructor
     · intro ⟨x,hx⟩
-      have this: LOption x.1 ((a +b) + c) := by 
-        rw [LOption]
-        exact x.2
-      apply sum_LOption.mp at this
+      have this:=(sum_POption p).mp <| x.2
       simp only [Subtype.exists, exists_prop, sum_format]
       cases this 
       case inl h' => 
            obtain ⟨a',⟨ha1,ha2⟩⟩ := h'
-           apply sum_LOption.mp at ha1
+           apply (sum_POption p).mp at ha1
            cases ha1
            case' inl h'' =>
                 obtain ⟨a'',⟨ha'1,ha'2⟩⟩ := h''
@@ -1357,170 +1235,75 @@ match ha : IsAtom a, hb : IsAtom b, hc : IsAtom c with
                 right
                 use b''+ c
                 constructor
-                · exact sum_LOption.mpr <| Or.inl ⟨b'',⟨ha'1,rfl⟩⟩ 
+                · exact (sum_POption p).mpr <| Or.inl ⟨b'',⟨ha'1,rfl⟩⟩ 
            -- we will need to use induction hypothesis here.
            all_goals
-                rw [← sum_assoc]
+                rw [← sum_assoc']
                 rw [← ha'2, ← ha2]
                 exact hx
-                -- we will need to use induction hypothesis here.
       case inr h' =>
            obtain ⟨c'',⟨ha1,ha2⟩⟩ := h'
            right
            use b + c''
            constructor
-           · exact sum_LOption.mpr <| Or.inr ⟨c'',⟨ha1,rfl⟩⟩ 
-           · rw [← sum_assoc]
+           · exact (sum_POption p).mpr <| Or.inr ⟨c'',⟨ha1,rfl⟩⟩ 
+           · rw [← sum_assoc']
+             simp only [sum_format] at ha2
              rw [← ha2]
              exact hx  
     · intro h
       cases h
       case inl h' => 
         obtain ⟨⟨x,hal⟩,hx⟩ := h'
-        have :((x + b) + c).LOption ((a+b) +c) :=by
-          rw [sum_LOption]
+        have :((x + b) + c)∈ moves ((a+b) +c) p :=by
+          rw [sum_POption]
           left
           use x + b
           constructor
-          · rw [sum_LOption]
+          · rw [sum_POption p]
             left
             use x
-            exact ⟨hal,rfl⟩
           · rfl  
         use ⟨x + b + c,this⟩
-        rw [sum_assoc]
+        rw [sum_assoc']
         exact hx
       case inr h' => 
         obtain ⟨⟨x,hbcl⟩,hx⟩ := h'
-        have : x.LOption (b+c) := hbcl
-        rw [sum_LOption] at this 
+        have : x∈ moves (b+c) p := hbcl
+        rw [sum_POption] at this 
         cases this
         case inl h'' => 
           obtain ⟨b',⟨hb1,hb2⟩⟩ := h''
-          have : (a+b'+c).LOption (a+b+c) := by
-               rw [sum_LOption]
+          have : (a+b'+c)∈ moves (a+b+c) p:= by
+               rw [sum_POption]
                left
                use a + b'
                constructor
-               · rw [sum_LOption]
+               · rw [sum_POption]
                  right
                  use b'
                · rfl
           use ⟨a + b' + c,this⟩
-          rw [sum_assoc,←hb2]
+          rw [sum_assoc',←hb2]
           exact hx
         case inr h'' => 
           obtain ⟨c',⟨hc1,hc2⟩⟩ := h''
-          have : (a+b+c').LOption (a+b+c) := by
-               rw [sum_LOption]
+          have : (a+b+c')∈ moves (a+b+c) p := by
+               rw [sum_POption]
                right
                use c'
           use ⟨a + b + c',this⟩
-          rw [sum_assoc,←hc2]
-          exact hx
-  · ext t
-    rw [Set.mem_union]
-    repeat rw [Set.mem_range]
-    constructor
-    · intro ⟨x,hx⟩
-      have this: ROption x.1 ((a +b) + c) := by 
-        rw [ROption]
-        exact x.2
-      apply sum_ROption.mp at this
-      simp only [Subtype.exists, exists_prop, sum_format]
-      cases this 
-      case inl h' => 
-           obtain ⟨a',⟨ha1,ha2⟩⟩ := h'
-           apply sum_ROption.mp at ha1
-           cases ha1
-           case' inl h'' =>
-                obtain ⟨a'',⟨ha'1,ha'2⟩⟩ := h''
-                left
-                use a''
-                constructor
-                · exact ha'1
-           case' inr h'' =>
-                obtain ⟨b'',⟨ha'1,ha'2⟩⟩ := h''
-                right
-                use b''+ c
-                constructor
-                · exact sum_ROption.mpr <| Or.inl ⟨b'',⟨ha'1,rfl⟩⟩ 
-           -- we will need to use induction hypothesis here.
-           all_goals
-                rw [← sum_assoc]
-                rw [← ha'2, ← ha2]
-                exact hx
-                -- we will need to use induction hypothesis here.
-      case inr h' =>
-           obtain ⟨c'',⟨ha1,ha2⟩⟩ := h'
-           right
-           use b + c''
-           constructor
-           · exact sum_ROption.mpr <| Or.inr ⟨c'',⟨ha1,rfl⟩⟩ 
-           · rw [← sum_assoc]
-             rw [← ha2]
-             exact hx  
-    · intro h
-      cases h
-      case inl h' => 
-        obtain ⟨⟨x,hal⟩,hx⟩ := h'
-        have :((x + b) + c).ROption ((a+b) +c) :=by
-          rw [sum_ROption]
-          left
-          use x + b
-          constructor
-          · rw [sum_ROption]
-            left
-            use x
-            exact ⟨hal,rfl⟩
-          · rfl  
-        use ⟨x + b + c,this⟩
-        rw [sum_assoc]
-        exact hx
-      case inr h' => 
-        obtain ⟨⟨x,hbcl⟩,hx⟩ := h'
-        have : x.ROption (b+c) := hbcl
-        rw [sum_ROption] at this 
-        cases this
-        case inl h'' => 
-          obtain ⟨b',⟨hb1,hb2⟩⟩ := h''
-          have : (a+b'+c).ROption (a+b+c) := by
-               rw [sum_ROption]
-               left
-               use a + b'
-               constructor
-               · rw [sum_ROption]
-                 right
-                 use b'
-               · rfl
-          use ⟨a + b' + c,this⟩
-          rw [sum_assoc,←hb2]
-          exact hx
-        case inr h'' => 
-          obtain ⟨c',⟨hc1,hc2⟩⟩ := h''
-          have : (a+b+c').ROption (a+b+c) := by
-               rw [sum_ROption]
-               right
-               use c'
-          use ⟨a + b + c',this⟩
-          rw [sum_assoc,←hc2]
-          exact hx
-  -- simp only [moves_or_mk_atom_id, Sum.isLeft_inl, ↓reduceDIte,Sum.getLeft_inl]
-  -- unfold sum
-  -- simp only [ha, hb, hc, and_self, ↓reduceDIte] 
-  -- simp only [moves_or_mk_atom_id, Sum.getLeft_inl]
-
-|true, false, true => sorry
-|false, true, true => sorry
---
-|false, true, false => sorry
-|true, false, false => sorry
-|false, false, true => sorry
-|false, false, false => sorry
+          rw [sum_assoc',←hc2]
+          exact hx  
 termination_by (a,b,c)
-decreasing_by Primordial_wf
-
-
+-- I do not know what is going on here, but it is a good place to experiment with Primordial_wf.
+decreasing_by
+  cases p <;> Primordial_wf
+  cases p <;> Primordial_wf
+  cases p <;> Primordial_wf
+  cases p <;> Primordial_wf
+  cases p <;> Primordial_wf
+  cases p <;> Primordial_wf
 
 
 
