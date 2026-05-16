@@ -27,55 +27,56 @@ def Primordial (A : Type) : Type (u+1) := @QPF.Fix (PrimordialFunctor A) (QPF_Pr
 
 
 noncomputable def moves_or {A : Type} : Primordial A → A ⊕ {s : (Player→ Set (Primordial A)) // ∀ p, Small.{u} (s p)} :=
-  fun x =>@QPF.Fix.dest (PrimordialFunctor A) (QPF_PrimordialFunctor A) x
+  fun x => @QPF.Fix.dest (PrimordialFunctor A) (QPF_PrimordialFunctor A) x
+
 
 noncomputable abbrev IsAtom {A : Type} (x : Primordial A):= Sum.isLeft (moves_or x)
-
 noncomputable abbrev IsComp {A : Type} (x : Primordial A) := Sum.isRight (moves_or x)
+
 
 noncomputable def Atom (A : Type) := {x: Primordial A | IsAtom x}
 noncomputable def Comp (A : Type) := {x : Primordial A | IsComp x}
 
+
 noncomputable def mk_atom {A : Type} : A → Primordial A := fun a => 
 (@QPF.Fix.mk (PrimordialFunctor A) (QPF_PrimordialFunctor A) (@Sum.inl A {st : Player → Set (Primordial A) // ∀ p, Small (st p)} a))
-
-lemma mk_atom_IsAtom {A : Type} {x : A} : IsAtom (mk_atom x) := by congr
-
 noncomputable def mk_comp {A : Type} (s : {st : Player → Set (Primordial A) // ∀ p, Small (st p)}) : Primordial A := (@QPF.Fix.mk (PrimordialFunctor A) (QPF_PrimordialFunctor A) (@Sum.inr A {st : Player → Set (Primordial A) // ∀ p, Small (st p)} s))
 
+
+lemma mk_atom_IsAtom {A : Type} {x : A} : IsAtom (mk_atom x) := by congr
 lemma mk_comp_IsComp {A : Type} {x : {st : Player → Set (Primordial A) // ∀ p, Small (st p)}} : IsComp (mk_comp x) := by congr
 
+
+@[simp]
 theorem mk_moves_or_id {A : Type} (x : Primordial A) : QPF.Fix.mk (moves_or x) = x:= by 
   dsimp [moves_or]
   rw [QPF.Fix.mk_dest]
 
 
+@[simp]
 theorem mk_atom_moves_or_id {A : Type} (x : Atom A) : mk_atom (Sum.getLeft (moves_or x.1) x.2) = x := by 
   unfold mk_atom
   rw [Sum.inl_getLeft, mk_moves_or_id]
-
 @[simp]
 theorem mk_comp_moves_or_id {A : Type} (x : Comp A) : mk_comp (Sum.getRight (moves_or x.1) x.2) = x := by 
   unfold mk_comp
   rw [Sum.inr_getRight, mk_moves_or_id]
 
-@[simp]
-theorem moves_or_mk_comp_id {A : Type} (st : Player → Set (Primordial A)) (h : ∀ p, Small (st p)) : moves_or (mk_comp ⟨st, h⟩) = Sum.inr ⟨st, h⟩ := by 
-  dsimp [moves_or,mk_comp]
-  rw [QPF.Fix.dest_mk] 
 
 @[simp]
-theorem moves_or_mk_atom_id {A : Type} (x : A) : moves_or (mk_atom x) = Sum.inl x
-:= by 
-  dsimp [moves_or,mk_atom]
-  rw [QPF.Fix.dest_mk] 
+theorem moves_or_mk_comp_id {A : Type} (st : Player → Set (Primordial A)) (h : ∀ p, Small (st p)) : moves_or (mk_comp ⟨st, h⟩) = Sum.inr ⟨st, h⟩ := by 
+        dsimp [moves_or,mk_comp]
+        rw [QPF.Fix.dest_mk] 
+@[simp]
+theorem moves_or_mk_atom_id {A : Type} (x : A) : moves_or (mk_atom x) = Sum.inl x := by 
+        dsimp [moves_or,mk_atom]
+        rw [QPF.Fix.dest_mk] 
 
 
 
 -- Special Games
 theorem Atom_nComp_iff {A : Type} {x : Primordial A} : IsAtom x=true ↔ ¬(IsComp x=true) := by
   simp only [Bool.not_eq_true, Sum.isRight_eq_false]
-
 theorem Comp_nAtom_iff {A : Type} {x : Primordial A} : IsComp x=true ↔ ¬(IsAtom x=true) := by
   simp only [Bool.not_eq_true,Sum.isLeft_eq_false]
 
@@ -92,46 +93,15 @@ definition  of the `ofSets` operation.
 Used to implement the `!{st}` and `!{s | t}` syntax.
 Here we construct a combinatorial Set Coloring game from its left and right sets. -/
 @[no_expose]
-noncomputable def ofSets {A : Type} (st : Player → Set (Primordial A)) [Small.{u} (st left)] [Small.{u} (st right)] : Primordial A := 
-    @mk_comp A ⟨st , 
-      λ p => match p with
-        |left => by assumption
-        |right => by assumption⟩
-    
-lemma ofSets_IsComp {A : Type} (st : Player → Set (Primordial A)) [Small.{u} (st left)] [Small.{u} (st right)] : IsComp (ofSets st) := by
+noncomputable instance ofSetsSC {A : Type} : OfSets (Primordial A) (fun _ => True)
+where ofSets st _ _ _ := @mk_comp A ⟨st , by intro p; cases p <;> assumption⟩
+
+
+
+lemma ofSets_IsComp {A : Type} (st : Player → Set (Primordial A)) [Small.{u} (st left)] [Small.{u} (st right)] : IsComp (!{st}) := by
   dsimp [IsComp, ofSets]
   rw [moves_or_mk_comp_id]
   rw [Sum.isRight_inr]
-
-@[inherit_doc Primordial.ofSets]
-macro "!{" st:term:max "}"  : term => `(Primordial.ofSets $st)
-
-@[inherit_doc Primordial.ofSets]
-macro "!{" s:term " | " t:term "}" : term => `(!{(Player.cases $s $t)})
-
-
-recommended_spelling "ofSets" for "!{st}" in [Primordial.ofSets, «term!{_}»] 
-recommended_spelling "ofSets" for "!{s | t}" in [Primordial.ofSets, «term!{_|_}»]
-
-open Lean PrettyPrinter Delaborator SubExpr in
-/-- Delaborates `ofSets (Player.cases s t)` to `!{s | t}` and `ofSets st` to `!{st}`. -/
-@[app_delab Primordial.ofSets]
-meta def delabOfSetsSC : Delab := do
-  let e ← getExpr
-  guard <| e.isAppOfArity' ``Primordial.ofSets 7
-  withNaryArg 3 do
-    let e ← getExpr
-    if e.isAppOfArity' ``Player.cases 3 then
-      let s ← withNaryArg 1 delab
-      let t ← withNaryArg 2 delab
-      `(!{$s | $t})
-    else
-      let st ← delab
-      `(!{$st})
- 
-theorem ofSets_eq_ofSets_cases {A : Type} (st : Player → Set (Primordial.{u} A)) [Small.{u} (st left)] [Small.{u} (st right)] :
-    !{st} = !{(st left) | (st right)} := by
-    congr; ext1 p; cases p <;> rfl
 
 
 /-- The set of moves of a composite game. -/
@@ -143,11 +113,12 @@ lemma moves_comp {A : Type} (x : Primordial A) (h : IsComp x) (p : Player) : mov
    dsimp [moves]
    simp [h]
 
+
 /-- The set of left moves of a composite game. -/
 notation x:max "ᴸ" => moves x left 
-
 /-- The set of right moves of a composite game. -/
 notation x:max "ᴿ" => moves x right 
+
 
 instance small_moves {A : Type} (p : Player) (x : Primordial.{u} A) : Small.{u} (moves x p) :=
   match h:IsComp x with
@@ -165,8 +136,6 @@ instance small_moves {A : Type} (p : Player) (x : Primordial.{u} A) : Small.{u} 
    dsimp [moves]
    simp only [h, Bool.false_eq_true, ↓reduceDIte]
    infer_instance
-
-
 
 
 @[simp]
@@ -242,7 +211,7 @@ theorem ofSets_inj {A : Type} {s₁ s₂ t₁ t₂ : Set (Primordial A)} [Small 
     !{s₁ | t₁} = !{s₂ | t₂} ↔ s₁ = s₂ ∧ t₁ = t₂ := by
       have this: Player.cases s₁ t₁ =Player.cases s₂ t₂ ↔ s₁ = s₂ ∧ t₁ =t₂ := by
         simp
-      have this2 : ofSets (Player.cases s₁ t₁) = ofSets (Player.cases s₂ t₂) ↔ Player.cases s₁ t₁  = Player.cases s₂ t₂ := by
+      have this2 : !{(Player.cases s₁ t₁)} = !{(Player.cases s₂ t₂)}  ↔ Player.cases s₁ t₁  = Player.cases s₂ t₂ := by
         constructor
         · intro h
           funext p
