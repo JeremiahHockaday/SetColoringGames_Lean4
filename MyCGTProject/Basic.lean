@@ -3,8 +3,6 @@ import Mathlib.Logic.Small.Set
 import Mathlib.Data.Set.Image
 import Mathlib.Data.Set.Basic
 import MyCGTProject.SmallNonempty
-import Init.Data.Bool
-import Mathlib.Order.GameAdd
 import MyCGTProject.Primordial
 
 
@@ -232,6 +230,7 @@ abbrev LOption {A : Type} : (Primordial.{u} A) → (Primordial.{u} A) → Prop :
 
 /-- x is a right option of the game y -/
 abbrev ROption {A : Type} : (Primordial.{u} A) → (Primordial.{u} A) → Prop := fun x y => x ∈ (moves.{u} y) right
+
 
 /-- x is an option of y iff x is a left or right option of y. -/
 theorem option_iff_lroption {x y : Primordial A} : option x y ↔ LOption x y ∨ ROption x y := by 
@@ -740,7 +739,7 @@ decreasing_by Primordial_wf
 -- noncomputable def sum_AC (g : Atom A) (H : Primordial.{u} B) : Primordial.{u} (A×B) := 
 --   MAP (λ b:B => ((Sum.getLeft (@moves_or A g) g.2),b)) H
 
-noncomputable def old_sum {A B : Type} (x : Primordial A) (y : Primordial B) : Primordial (A×B) :=
+private noncomputable def old_sum {A B : Type} (x : Primordial A) (y : Primordial B) : Primordial (A×B) :=
 if hx : IsAtom x then
   if hy : IsAtom y then 
     mk_atom (Sum.getLeft (moves_or x) hx,Sum.getLeft (moves_or y) hy)
@@ -949,9 +948,8 @@ lemma sum_option {A B : Type} {x : Primordial (A × B)} {a : Primordial A} {b : 
     exact (sum_POption i).mpr h
 
 
-
 /- The sum function is the same as this map when the second component is atomic. -/
-lemma old_sum_to_MAP_fst {A B : Type} (x : Primordial A) (y : Primordial B) (hy : IsAtom y) : old_sum x y =  MAP (λ a:A => (a,(Sum.getLeft (moves_or y) hy))) x := by
+private lemma old_sum_to_MAP_fst {A B : Type} (x : Primordial A) (y : Primordial B) (hy : IsAtom y) : old_sum x y =  MAP (λ a:A => (a,(Sum.getLeft (moves_or y) hy))) x := by
 match hx:IsAtom x with
 |true=> 
   unfold old_sum MAP
@@ -964,7 +962,7 @@ match hx:IsAtom x with
   rw [dif_pos hy]
   
 /-- The two sum functions agree when their second component is atomic -/  
-lemma old_sum_eq_sum_fst {A B : Type} (x : Primordial A) (y : Primordial B) (hy : IsAtom y) : old_sum x y =  x + y := by
+private lemma old_sum_eq_sum_fst {A B : Type} (x : Primordial A) (y : Primordial B) (hy : IsAtom y) : old_sum x y =  x + y := by
 match hx:IsAtom x with
 |true =>   
   dsimp [HAdd.hAdd]
@@ -1005,7 +1003,7 @@ decreasing_by
   Primordial_wf
 
 /- The sum function is the same as this map when the first component is atomic. -/
-lemma old_sum_to_MAP_snd {A B : Type} (x : Primordial A) (hx : IsAtom x) (y : Primordial B) : old_sum x y =  MAP (λ b:B => ((Sum.getLeft (moves_or x) hx),b)) y := by
+private lemma old_sum_to_MAP_snd {A B : Type} (x : Primordial A) (hx : IsAtom x) (y : Primordial B) : old_sum x y =  MAP (λ b:B => ((Sum.getLeft (moves_or x) hx),b)) y := by
 match hy : IsAtom y with
 |true=> 
   unfold old_sum MAP
@@ -1018,7 +1016,7 @@ match hy : IsAtom y with
   rw [dif_neg hy]
   
 /-- The two sum functions agree when their first component is atomic -/  
-lemma old_sum_eq_sum_snd {A B : Type} (x : Primordial A) (hx : IsAtom x) (y : Primordial B) : old_sum x y = x + y := by
+private lemma old_sum_eq_sum_snd {A B : Type} (x : Primordial A) (hx : IsAtom x) (y : Primordial B) : old_sum x y = x + y := by
 match hy:IsAtom y with
 |true => 
   dsimp [HAdd.hAdd]
@@ -1101,7 +1099,7 @@ match hx:IsAtom x, hy:IsAtom y with
 termination_by (x,y)
 decreasing_by Primordial_wf
 
-instance ProductAssoc {A B C : Type} : ((A×B)×C)≃(A×(B×C)):= 
+private instance ProductAssoc {A B C : Type} : ((A×B)×C)≃(A×(B×C)):= 
   let f :((A×B)×C)→(A×(B×C)) := fun ((x1,x2),x3) => (x1,(x2,x3))
   let g :(A×(B×C))→((A×B)×C) := fun (x1,(x2,x3)) => ((x1,x2),x3)
   have hfg : f∘ g = id := by rfl;
@@ -1117,19 +1115,14 @@ instance ProductAssoc {A B C : Type} : ((A×B)×C)≃(A×(B×C)):=
       apply funext_iff.mp at hfg
       simp only[Function.comp_apply] at hfg
       exact hfg⟩
--- set_option diagnostics true in
--- set_option maxHeartbeats 200000 in
--- set_option pp.explicit true in
--- set_option pp.deepTerms true in
--- I want to rerwite this proof in a more efficient way, using cases and case'.
-theorem sum_assoc' {A B C : Type} {a : Primordial A} {b : Primordial B} {c : Primordial.{u} C} :
+
+private theorem sum_assoc' {A B C : Type} {a : Primordial A} {b : Primordial B} {c : Primordial.{u} C} :
 MAP (fun ((x1,x2),x3) => (x1,(x2,x3))) (a + b + c) = a + (b + c) := by 
---  simp only [sum_format,sum_IsAtom]
   repeat rw [← sum_format]
   unfold MAP
   cases habc : (IsAtom a)&&(IsAtom b)&&(IsAtom c)
   case true =>
-    simp only [Bool.and_eq_true] at habc
+    repeat rw [Bool.and_eq_true] at habc
     have this':(IsAtom a = true ∧ IsAtom (b.sum c) = true) := by 
       rw [sum_format]
       rw [sum_IsAtom]
@@ -1148,33 +1141,28 @@ MAP (fun ((x1,x2),x3) => (x1,(x2,x3))) (a + b + c) = a + (b + c) := by
     --
     rw [dif_pos this]
     unfold sum
-    simp only [dif_pos (this')]
-    simp only [dif_pos (this'')]
+    rw [dif_pos (this')]
+    congr
+    simp_rw [dif_pos (this'')]
     unfold sum
-    simp only [dif_pos (this''')]
-    simp only [dif_pos (this'''')]
+    simp_rw [dif_pos (this''')]
+    simp_rw [dif_pos (this'''')]
     rfl
-  case' false =>
-    rw [Bool.eq_false_iff] at habc
-    rw [Ne] at habc
-    simp only [Bool.and_eq_true] at habc
+  case false =>
+    rw [Bool.eq_false_iff, Ne] at habc
+    repeat rw [Bool.and_eq_true] at habc
     have this':¬(IsAtom a = true ∧ IsAtom (b.sum c) = true) := by 
-      rw [sum_format]
-      rw [sum_IsAtom]
-      rw [and_assoc] at habc
+      rw [sum_format, sum_IsAtom, ← and_assoc]
       exact habc
     have this'':¬(IsAtom (a.sum b) = true ∧ IsAtom c = true) := by 
-      rw [sum_format]
-      rw [sum_IsAtom]
+      rw [sum_format, sum_IsAtom]
       exact habc
     have this : ¬IsAtom (sum (sum a b) c) := by 
-      rw [sum_format, sum_IsAtom] at this''
       repeat rw [sum_format, sum_IsAtom]
-      exact this''
+      exact habc
     rw [dif_neg this]
     unfold sum
     rw [dif_neg (this')]
-    simp only
     congr
     ext p t
     rw [Set.mem_union]
@@ -1182,7 +1170,7 @@ MAP (fun ((x1,x2),x3) => (x1,(x2,x3))) (a + b + c) = a + (b + c) := by
     constructor
     · intro ⟨x,hx⟩
       have this:=(sum_POption p).mp <| x.2
-      simp only [Subtype.exists, exists_prop, sum_format]
+      repeat rw [Subtype.exists]
       cases this 
       case inl h' => 
            obtain ⟨a',⟨ha1,ha2⟩⟩ := h'
@@ -1191,15 +1179,13 @@ MAP (fun ((x1,x2),x3) => (x1,(x2,x3))) (a + b + c) = a + (b + c) := by
            case' inl h'' =>
                 obtain ⟨a'',⟨ha'1,ha'2⟩⟩ := h''
                 left
-                use a''
-                constructor
-                · exact ha'1
+                use a'', ha'1
+                repeat rw [sum_format]
            case' inr h'' =>
                 obtain ⟨b'',⟨ha'1,ha'2⟩⟩ := h''
                 right
-                use b''+ c
-                constructor
-                · exact (sum_POption p).mpr <| Or.inl ⟨b'',⟨ha'1,rfl⟩⟩ 
+                use b''+ c, (sum_POption p).mpr <| Or.inl ⟨b'',⟨ha'1,rfl⟩⟩
+                rw [sum_format]
            -- we will need to use induction hypothesis here.
            all_goals
                 rw [← sum_assoc']
@@ -1208,13 +1194,14 @@ MAP (fun ((x1,x2),x3) => (x1,(x2,x3))) (a + b + c) = a + (b + c) := by
       case inr h' =>
            obtain ⟨c'',⟨ha1,ha2⟩⟩ := h'
            right
-           use b + c''
-           constructor
-           · exact (sum_POption p).mpr <| Or.inr ⟨c'',⟨ha1,rfl⟩⟩ 
-           · rw [← sum_assoc']
-             simp only [sum_format] at ha2
-             rw [← ha2]
-             exact hx  
+           use b + c'', (sum_POption p).mpr <| Or.inr ⟨c'',⟨ha1,rfl⟩⟩
+           rw [sum_format]
+           rw [← sum_assoc']
+           conv at ha2 =>
+             right
+             rw [sum_format]
+           rw [← ha2]
+           exact hx  
     · intro h
       cases h
       case inl h' => 
@@ -1260,10 +1247,9 @@ MAP (fun ((x1,x2),x3) => (x1,(x2,x3))) (a + b + c) = a + (b + c) := by
           rw [sum_assoc',←hc2]
           exact hx  
 termination_by (a,b,c)
-decreasing_by
-  Primordial_wf
+decreasing_by Primordial_wf
 
-
+end Primordial
 
 -- noncomputable def test1 {A} (x : Primordial A) : Nat :=
 -- match IsAtom x with 
@@ -1319,9 +1305,6 @@ decreasing_by
 --   exact test10 y
 -- termination_by x
 -- decreasing_by Primordial_wf
-
-
-end Primordial
 
 
 
