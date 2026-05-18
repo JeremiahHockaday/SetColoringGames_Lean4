@@ -277,6 +277,11 @@ theorem optionSubposition {A : Type} {x y : Primordial A} : option x y → Subpo
 theorem Subposition.of_mem_moves {A : Type} {x y : Primordial A} (h : x ∈ ⋃ p, (moves.{u} y) p) : Subposition x y :=
   Relation.TransGen.single (h)
 
+lemma Subposition.of_mem_movesP {A : Type} {x y : Primordial A} {p : Player} (h : x ∈ (moves.{u} y) p) : Subposition x y := by
+  suffices x∈ ⋃ p, (moves.{u} y) p by exact Subposition.of_mem_moves this
+  · rw [Set.mem_iUnion]
+    use p  
+
 /-- transitivity of Subposition relation -/
 theorem Subposition.trans {A : Type} {a b c : Primordial A} : Subposition a b → Subposition b c -> Subposition a c := Relation.TransGen.trans
 
@@ -531,13 +536,12 @@ theorem recOn_eq {motive : Primordial A → Sort*} (x : Primordial A)
 
 
 
-
 /-- Discharges proof obligations of the form `⊢ Subposition ..` arising in termination proofs
 of definitions using well-founded recursion on `IGame`. -/
 macro "Primordial_wf" config:Lean.Parser.Tactic.optConfig : tactic =>
-  `(tactic| all_goals solve_by_elim $config
-    [Prod.Lex.left, Prod.Lex.right, PSigma.Lex.left, PSigma.Lex.right, left_memMoves, right_memMoves,
-    Subposition.of_mem_moves, Subposition.trans, Subtype.prop] )
+  `(tactic| all_goals { solve_by_elim $config
+    [Prod.Lex.left, Prod.Lex.right, PSigma.Lex.left, PSigma.Lex.right, left_memMoves, right_memMoves, Subposition.of_mem_movesP,
+    Subposition.of_mem_moves, Subposition.trans, Subtype.prop]} )
 
 
 
@@ -550,7 +554,6 @@ else
   !{fun p=>Set.range (fun (z : x.moves (-p)) ↦ Dual z)}
 termination_by x
 decreasing_by 
-  cases p
   Primordial_wf
 
 lemma Dual_IsAtom {A : Type} {x : Primordial A} : IsAtom (Dual x) = IsAtom x:= by
@@ -612,8 +615,7 @@ theorem Dual_selfInverse {A : Type} {x : Primordial A} : Dual ( Dual x) = x := b
          simp only
          exact Dual_selfInverse
 termination_by x
-decreasing_by all_goals {cases p <;>Primordial_wf}
-
+decreasing_by Primordial_wf
 
 /-- given a function on the underlying sets A, B, this is the function from Primordial A to Primordial B that naturally arises. uses recursion -/
 noncomputable def MAP (f : A → B) (x : Primordial.{u} A) : Primordial B := 
@@ -624,7 +626,6 @@ noncomputable def MAP (f : A → B) (x : Primordial.{u} A) : Primordial B :=
     !{(fun p:Player => Set.range (fun (z: moves x p) => MAP f z))}
 termination_by x
 decreasing_by 
-  cases p
   Primordial_wf
 
 @[simp] lemma MAP_mk_atom {A B} {f : A → B} (x : Primordial A) (hx : IsAtom x) :
@@ -761,8 +762,6 @@ if hxy:IsAtom x ∧IsAtom y then mk_atom (Sum.getLeft (moves_or x) hxy.left,Sum.
 else !{ (  fun p:Player => (Set.range fun (z : moves x p) ↦ sum z.val y)∪(Set.range fun (z : moves y p) ↦ sum x z.val)  )}
 termination_by (x,y)
 decreasing_by 
-  cases p <;> Primordial_wf
-  cases p
   Primordial_wf
 
 -- 
@@ -1003,8 +1002,6 @@ match hx:IsAtom x with
           exact isEmpty_iff.mp (Atom_no_options _ hy) ⟨b,leftORright_memMoves.mp (by cases p <;> simp only [hb1,true_or,or_true])⟩
 termination_by x
 decreasing_by 
-  cases p <;> Primordial_wf
-  cases p
   Primordial_wf
 
 /- The sum function is the same as this map when the first component is atomic. -/
@@ -1059,8 +1056,6 @@ match hy:IsAtom y with
           exact ha2
 termination_by y
 decreasing_by
-  cases p <;> Primordial_wf
-  cases p
   Primordial_wf
 
 
@@ -1265,15 +1260,8 @@ MAP (fun ((x1,x2),x3) => (x1,(x2,x3))) (a + b + c) = a + (b + c) := by
           rw [sum_assoc',←hc2]
           exact hx  
 termination_by (a,b,c)
--- I do not know what is going on here, but it is a good place to experiment with Primordial_wf.
 decreasing_by
-  cases p <;> Primordial_wf
-  cases p <;> Primordial_wf
-  cases p <;> Primordial_wf
-  cases p <;> Primordial_wf
-  cases p <;> Primordial_wf
-  cases p <;> Primordial_wf
-
+  Primordial_wf
 
 
 
