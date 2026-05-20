@@ -115,31 +115,27 @@ theorem fundCGTv2 (x : Primordial Bool) : ∀ p, SPS x p ↔ ¬ (FPS x (-p)):= b
 
 
 
+
 mutual
 
 /-- this is obviosly not an ideal way of defining leq, but it is necessary to convince lean that the functions are mutually recursive. this is because of the weird way in which lean handles mutual recursion. -/
-def intrRel.leq {A : Type} [Preorder A] (g h : Primordial.{u} A) : Prop := 
-((∀ l∈ gᴸ, intrRel.tri l h) ∧ 
-(∀ r∈ hᴿ, intrRel.tri g r)) ∧ 
-(IsAtom g=true∨IsAtom h=true →  
-  ((∃ r, ∃ _:r∈ gᴿ, intrRel.leq r h) ∨ 
-  (∃l,∃ _: l∈ hᴸ, intrRel.leq g l)) ∨ 
-  ∃ hg: IsAtom g, ∃ hh : IsAtom h, Sum.getLeft (moves_or g) hg ≤ Sum.getLeft (moves_or h) hh)
-termination_by (g,h)
+def intrRel.leq {A : Type} [Preorder A] (g k : Primordial.{u} A) : Prop := 
+((∀ l∈ gᴸ, intrRel.tri l k) ∧ 
+(∀ r∈ kᴿ, intrRel.tri g r)) ∧ 
+(IsAtom g=true∨IsAtom k=true →  intrRel.tri g k)
+termination_by ((g,k),1)
 decreasing_by Primordial_wf
 
-def intrRel.tri {A : Type} [Preorder A] (g h : Primordial.{u} A) : Prop := 
-((∃ r, ∃ _:r∈ gᴿ, intrRel.leq r h) ∨ 
-(∃l,∃ _: l∈ hᴸ, intrRel.leq g l)) ∨ 
-∃ hg: IsAtom g, ∃ hh : IsAtom h, Sum.getLeft (moves_or g) hg ≤ Sum.getLeft (moves_or h) hh
-termination_by (g,h)
+def intrRel.tri {A : Type} [Preorder A] (g k : Primordial.{u} A) : Prop := 
+((∃ r, ∃ _:r∈ gᴿ, intrRel.leq r k) ∨
+(∃l,∃ _: l∈ kᴸ, intrRel.leq g l)) ∨
+∃ hg: IsAtom g, ∃ hk : IsAtom k, Sum.getLeft (moves_or g) hg ≤ Sum.getLeft (moves_or k) hk
+termination_by ((g,k),0)
 decreasing_by Primordial_wf
--- (IsAtom g=true∨IsAtom h=true →  intrRel.tri g h)
--- termination_by ((g,h),1)
-
-
 
 end
+
+
 
 instance {A : Type} [Preorder A] : LE (Primordial A) where
 le := intrRel.leq
@@ -154,12 +150,8 @@ notation g:max "◃" h:max => intrRel.tri g h
 lemma intrRel.leq.simp {A : Type} [Preorder A] {g h : Primordial.{u} A} : g≤ h ↔ 
 ((∀ l∈ gᴸ, intrRel.tri l h) ∧ 
 (∀ r∈ hᴿ, intrRel.tri g r)) ∧ 
-(IsAtom g=true∨IsAtom h=true → g◃h) := by 
+(IsAtom g=true∨IsAtom h=true → g◃h) := by  
   rw [← intrRel.leq.format,leq]
-  repeat rw [and_congr_right_iff]
-  intro _
-  rw [tri]
-  
 
 lemma intrRel.leq.refl {A : Type} [Preorder A] (g : Primordial.{u} A) : g ≤ g:= by
   rw [leq.simp]
@@ -261,7 +253,7 @@ lemma intrRel.transtl {A : Type} [Preorder A] (g j k : Primordial.{u} A) : (g �
            right
            use hg, hk
            grind only
-termination_by (g,j,k)
+termination_by ((g,j,k),0)
 decreasing_by Primordial_wf
 
 lemma intrRel.translt {A : Type} [Preorder A] (g j k : Primordial.{u} A) : (g ≤ j) → (j ◃ k) → (g ◃ k) := by
@@ -313,7 +305,7 @@ lemma intrRel.translt {A : Type} [Preorder A] (g j k : Primordial.{u} A) : (g �
            right
            use hg, hk
            grind only
-termination_by (g,j,k)
+termination_by ((g,j,k),0)
 decreasing_by Primordial_wf
 
 lemma intrRel.trans {A : Type} [Preorder A] (g j k : Primordial.{u} A) : (g ≤ j) → (j ≤ k) → (g ≤ k):= by
@@ -336,110 +328,16 @@ lemma intrRel.trans {A : Type} [Preorder A] (g j k : Primordial.{u} A) : (g ≤ 
        cases h
        case inl h' =>
             have thisR : IsEmpty (Subtype (λ x => x∈ gᴿ)):= by
-                rw [Set.isEmpty_coe_sort]
-                rw [moves]
-                rw [dif_neg (Atom_nComp_iff.mp h')]
+                rw [Set.isEmpty_coe_sort, moves, dif_neg (Atom_nComp_iff.mp h')]
             rw [leq.simp] at h1
-            apply And.right at h1
-            specialize h1 (Or.inl h')
-            rw [tri] at h1
-            conv at h1 =>
-                 left;left
-                 rw [← @Subtype.exists _ _ (λ x => leq x.1 j)]
-                 rw [@IsEmpty.exists_iff _ thisR]
-            rw [false_or] at h1
-            rw [← intrRel.leq.format,leq] at h2
-            cases h1
-            case inl hl =>
-                 apply And.left at h2
-                 apply And.left at h2
-                 obtain ⟨l,hl,hjl⟩:= hl
-                 specialize h2 l hl
-                 exact intrRel.translt _ _ _ hjl h2
-            case inr hr =>
-                 apply And.right at h2
-                 obtain ⟨hg,hj,hgj⟩ := hr
-                 have thisR' : IsEmpty (Subtype (λ x => x∈ jᴿ)):= by
-                      rw [Set.isEmpty_coe_sort]
-                      rw [moves]
-                      rw [dif_neg (Atom_nComp_iff.mp hj)]
-                 specialize h2 (Or.inl hj)
-                 
-                 conv at h2 =>
-                      left;left
-                      rw [← @Subtype.exists _ _ (λ x => leq x.1 k)]
-                      rw [@IsEmpty.exists_iff _ thisR']
-                 rw [false_or] at h2
-                 cases h2
-                 case inl h'' =>
-                      obtain ⟨l,hl,hjl⟩:= h''
-                      have this'': g ≤ j := atomic_leq _ _ _ _ hgj
-                      have := intrRel.trans _ _ _ this'' hjl
-                      rw [tri]
-                      left;right
-                      use l, hl
-                      exact this
-                 case inr h'' =>
-                   obtain ⟨_,hk,t⟩:= h''
-                   rw [tri]
-                   right
-                   use hg, hk
-                   grind only
-            -- mutual tries to force each call to decrease, making the following line break... this should not happen, it is weird that it does.
-            --exact intrRel.transtl _ _ _ h1 h2
+            exact intrRel.transtl _ _ _ ((And.right h1) (Or.inl h')) h2
        case inr h' => 
             have thisR : IsEmpty (Subtype (λ x => x∈ kᴸ)):= by
-                rw [Set.isEmpty_coe_sort]
-                rw [moves]
-                rw [dif_neg (Atom_nComp_iff.mp h')]
+                rw [Set.isEmpty_coe_sort, moves, dif_neg (Atom_nComp_iff.mp h')]
             rw [leq.simp] at h2
-            apply And.right at h2
-            specialize h2 (Or.inr h')
-            rw [tri] at h2
-            conv at h2 =>
-                 left; right
-                 rw [← @Subtype.exists _ _ (λ x => leq j x.1)]
-                 rw [@IsEmpty.exists_iff _ thisR]
-            rw [or_false] at h2
-            rw [← intrRel.leq.format,leq] at h1
-            cases h2
-            case inl hl =>
-                 apply And.left at h1
-                 apply And.right at h1
-                 obtain ⟨l,hl,hjl⟩:= hl
-                 specialize h1 l hl
-                 exact intrRel.transtl _ _ _ h1 hjl
-            case inr hr =>
-                 apply And.right at h1
-                 obtain ⟨hj,hk,hjk⟩ := hr
-                 have thisL' : IsEmpty (Subtype (λ x => x∈ jᴸ)):= by
-                      rw [Set.isEmpty_coe_sort]
-                      rw [moves]
-                      rw [dif_neg (Atom_nComp_iff.mp hj)]
-                 specialize h1 (Or.inr hj)
-                 
-                 conv at h1 =>
-                      left;right
-                      rw [← @Subtype.exists _ _ (λ x => leq g x.1)]
-                      rw [@IsEmpty.exists_iff _ thisL']
-                 rw [or_false] at h1
-                 cases h1
-                 case inl h'' =>
-                      obtain ⟨r,hr,hjr⟩:= h''
-                      have this'': j≤ k := atomic_leq _ _ _ _ hjk
-                      have := intrRel.trans _ _ _ hjr this''
-                      rw [tri]
-                      left;left
-                      use r, hr
-                      exact this
-                 case inr h'' =>
-                   obtain ⟨hg,_,t⟩:= h''
-                   rw [tri]
-                   right
-                   use hg, hk
-                   grind only
+            exact intrRel.translt _ _ _ h1 ((And.right h2) (Or.inr h')) 
   exact ⟨⟨t1,t2⟩,t3⟩
-termination_by (g,j,k)
+termination_by ((g,j,k),1)
 decreasing_by Primordial_wf
 end
 
