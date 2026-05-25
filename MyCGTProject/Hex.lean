@@ -15,108 +15,6 @@ universe u
 
 open Primordial
 
-def pGoal (p : Player) : Bool := 
-match p with
-| left => ⊤
-|right => ⊥
-
-lemma pGoal_neg (p : Player) : pGoal (p) ≠ pGoal (-p) := by
-  cases p
-  case' left => rw [Player.neg_left]
-  case' right =>  rw [Player.neg_right] ; symm  
-  all_goals
-    repeat rw [pGoal]
-    trivial
-
-
-mutual
-/-- First player winning strategy in x for player p. -/
-def FPS (x : Primordial Bool) (p : Player) : Prop := (∃ h : IsAtom x, Sum.getLeft (moves_or x) h = pGoal p) ∨ (∃ y, ∃ _: y∈ moves x p, SPS y p) 
-termination_by x
-decreasing_by Primordial_wf
-
-/-- Second player winning strategy in x for player p. -/
-def SPS (x : Primordial Bool) (p:Player) : Prop := 
-  (∀ h:IsAtom x, Sum.getLeft (moves_or x) h = pGoal p)∧ (∀ y, y∈ moves x (-p) → FPS y p)
-termination_by x
-decreasing_by Primordial_wf
-
-end
-
-noncomputable def starGame :Primordial Bool := !{λ p => {mk_atom (pGoal p)}}
-
-example (p : Player) : FPS starGame p := by 
-  rw [FPS]
-  right
-  use mk_atom (pGoal p) 
-  have :mk_atom (pGoal p) ∈ starGame.moves p := by 
-       rw [starGame]
-       simp
-  use this
-  rw [SPS]
-  constructor
-  · simp
-  · have this' := Atom_no_options (mk_atom.{u} (pGoal p)) (mk_atom_IsAtom)
-    intro _ _
-    contradiction
-
-/-- fundamental theorem: If Left has a first player winning strategy 
-then right cannot have a seccond player winning stategy. -/
-theorem fundCGT (x : Primordial Bool) : ∀ p, FPS x p ↔ ¬ (SPS x (-p)):= by 
-  intro p
-  rw [FPS,SPS]
-  rw [not_and_or]
-  conv =>
-      right
-      repeat rw [not_forall]
-  constructor
-  · intro h'
-    cases h'
-    case inl h' =>
-      obtain ⟨ha,a⟩ := h'
-      left
-      use ha
-      rw [a]
-      apply pGoal_neg
-    case inr h' =>
-      obtain ⟨a,⟨ham,has⟩⟩ := h'
-      right  
-      use a
-      apply not_not.mpr at has
-      rw [← neg_neg p, ← fundCGT] at has
-      rw [neg_neg, Classical.not_imp]
-      exact ⟨ham,has⟩
-  · intro h'
-    cases h'
-    case inl h' =>
-      obtain ⟨ha,a⟩:= h'
-      left 
-      use ha
-      by_contra 
-      cases hx :(moves_or x).getLeft ha
-      all_goals
-          grind [= pGoal]
-    case inr h' =>      
-      right  
-      obtain ⟨a,ham⟩ := h'
-      use a
-      rw [neg_neg, Classical.not_imp] at ham
-      obtain ⟨ham1,ham2⟩ := ham
-      use ham1
-      rw [fundCGT, neg_neg p,not_not] at ham2
-      exact ham2
-termination_by x
-decreasing_by Primordial_wf
-
-theorem fundCGTv2 (x : Primordial Bool) : ∀ p, SPS x p ↔ ¬ (FPS x (-p)):= by 
-  intro p
-  have :=(fundCGT x (-p)).symm
-  rw [neg_neg, ← not_iff, Classical.not_iff] at this
-  exact iff_not_comm.mp (id (Iff.symm this))
-
-
-
-
 mutual
 
 /-- this is obviosly not an ideal way of defining leq, but it is necessary to convince lean that the functions are mutually recursive. this is because of the weird way in which lean handles mutual recursion. -/
@@ -323,22 +221,6 @@ termination_by (g,k, 0)
 decreasing_by Primordial_wf
 end
 
-
--- lemma leq_Dual {A : Type} [ t : Preorder A] (g k : Primordial A) : g ◃ k ↔ ((@Dual Aᵒᵈ k) ◃ (@Dual Aᵒᵈ g)) := by
---   constructor 
---   · intro h
---     rw [intrRel.tri]
---     right
---     have hk : IsAtom k.Dual = true := sorry
---     have hg : IsAtom g.Dual = true := sorry
---     use hk, hg
---     rw [LE.le]
-    
---     _
---   · _
-
-
-
 -- a proof of transitivity
 mutual
 
@@ -498,11 +380,6 @@ example {A : Type} [Preorder A] (g k : Primordial A) : g≃ k ↔ k≃ g  := by
   rw [and_comm]
 
 
--- private lemma lr_sub_dual {A:Type} [Preorder A] {L R : Set (Primordial A)} [Small.{u} L] [Small.{u} R] {k k' : Primordial A} (hk : k≤ k') : !{{k}∪L|R} ≤ !{{k'}∪L|R} ↔  _:= by sorry
-  
-
---!{Set.range (fun (z : R) ↦ Dual z) |{Dual k}∪ Set.range (fun (z : L) ↦ Dual z)}≤ !{Set.range (fun (z : R) ↦ Dual z) |{Dual k'}∪ Set.range (fun (z : L) ↦ Dual z)}
-
 --lemma left_sub {A : Type} [Preorder A] {L R : Set (Primordial A)} [Small.{u} L] [Small.{u} R] {k k' : Primordial A} (hk : k ≤ k'): !{{k}∪L|R} ≤ !{{k'}∪L|R} := sorry
 
 
@@ -510,9 +387,8 @@ example {A : Type} [Preorder A] (g k : Primordial A) : g≃ k ↔ k≃ g  := by
 --lemma right_sub {A : Type} [Preorder A] {L R : Set (Primordial A)} [Small.{u} L] [Small.{u} R] {k k' : Primordial A} (hk : k ≤ k'): !{L|{k}∪R} ≤ !{L|{k'}∪R} := sorry
 
 
-abbrev oc (x : Primordial Bool) : Prop × Prop := (FPS x left, SPS x left)
 
-abbrev eval {A B : Type} {p : (A → B) → Prop} (xf : A × {f:A → B| p f}) : B := xf.2.1 xf.1 
+
 
 --contextual order on games
 def contxRel {A : Type} [Preorder A] (g h : Primordial.{u} A) : Prop := ∀ x : Primordial.{u} ({f : A → Bool | Monotone f}), oc (MAP eval (g + x)) ≤ oc (MAP eval (h + x))

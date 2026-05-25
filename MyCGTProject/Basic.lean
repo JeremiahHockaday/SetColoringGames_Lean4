@@ -1278,6 +1278,110 @@ MAP (fun ((x1,x2),x3) => (x1,(x2,x3))) (a + b + c) = a + (b + c) := by
 termination_by (a,b,c)
 decreasing_by Primordial_wf
 
+def pGoal (p : Player) : Bool := 
+match p with
+| left => ⊤
+|right => ⊥
+
+lemma pGoal_neg (p : Player) : pGoal (p) ≠ pGoal (-p) := by
+  cases p
+  case' left => rw [Player.neg_left]
+  case' right =>  rw [Player.neg_right] ; symm  
+  all_goals
+    repeat rw [pGoal]
+    trivial
+
+
+mutual
+/-- First player winning strategy in x for player p. -/
+def FPS (x : Primordial Bool) (p : Player) : Prop := (∃ h : IsAtom x, Sum.getLeft (moves_or x) h = pGoal p) ∨ (∃ y, ∃ _: y∈ moves x p, SPS y p) 
+termination_by x
+decreasing_by Primordial_wf
+
+/-- Second player winning strategy in x for player p. -/
+def SPS (x : Primordial Bool) (p:Player) : Prop := 
+  (∀ h:IsAtom x, Sum.getLeft (moves_or x) h = pGoal p)∧ (∀ y, y∈ moves x (-p) → FPS y p)
+termination_by x
+decreasing_by Primordial_wf
+
+end
+
+noncomputable def starGame :Primordial Bool := !{λ p => {mk_atom (pGoal p)}}
+
+example (p : Player) : FPS starGame p := by 
+  rw [FPS]
+  right
+  use mk_atom (pGoal p) 
+  have :mk_atom (pGoal p) ∈ starGame.moves p := by 
+       rw [starGame]
+       simp
+  use this
+  rw [SPS]
+  constructor
+  · simp
+  · have this' := Atom_no_options (mk_atom.{u} (pGoal p)) (mk_atom_IsAtom)
+    intro _ _
+    contradiction
+
+/-- fundamental theorem: If Left has a first player winning strategy 
+then right cannot have a seccond player winning stategy. -/
+theorem fundCGT (x : Primordial Bool) : ∀ p, FPS x p ↔ ¬ (SPS x (-p)):= by 
+  intro p
+  rw [FPS,SPS]
+  rw [not_and_or]
+  conv =>
+      right
+      repeat rw [not_forall]
+  constructor
+  · intro h'
+    cases h'
+    case inl h' =>
+      obtain ⟨ha,a⟩ := h'
+      left
+      use ha
+      rw [a]
+      apply pGoal_neg
+    case inr h' =>
+      obtain ⟨a,⟨ham,has⟩⟩ := h'
+      right  
+      use a
+      apply not_not.mpr at has
+      rw [← neg_neg p, ← fundCGT] at has
+      rw [neg_neg, Classical.not_imp]
+      exact ⟨ham,has⟩
+  · intro h'
+    cases h'
+    case inl h' =>
+      obtain ⟨ha,a⟩:= h'
+      left 
+      use ha
+      by_contra 
+      cases hx :(moves_or x).getLeft ha
+      all_goals
+          grind [= pGoal]
+    case inr h' =>      
+      right  
+      obtain ⟨a,ham⟩ := h'
+      use a
+      rw [neg_neg, Classical.not_imp] at ham
+      obtain ⟨ham1,ham2⟩ := ham
+      use ham1
+      rw [fundCGT, neg_neg p,not_not] at ham2
+      exact ham2
+termination_by x
+decreasing_by Primordial_wf
+
+theorem fundCGTv2 (x : Primordial Bool) : ∀ p, SPS x p ↔ ¬ (FPS x (-p)):= by 
+  intro p
+  have :=(fundCGT x (-p)).symm
+  rw [neg_neg, ← not_iff, Classical.not_iff] at this
+  exact iff_not_comm.mp (id (Iff.symm this))
+
+abbrev oc (x : Primordial Bool) : Prop × Prop := (FPS x left, SPS x left)
+
+abbrev eval {A B : Type} {p : (A → B) → Prop} (xf : A × {f:A → B| p f}) : B := xf.2.1 xf.1 
+
+
 end Primordial
 
 -- noncomputable def test1 {A} (x : Primordial A) : Nat :=
