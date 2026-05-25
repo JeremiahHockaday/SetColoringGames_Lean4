@@ -616,6 +616,35 @@ theorem Dual_selfInverse {A : Type} {x : Primordial A} : Dual ( Dual x) = x := b
 termination_by x
 decreasing_by Primordial_wf
 
+theorem Dual_ofSets {A : Type} {L R : Set (Primordial A)} [Small L] [Small R] : Dual !{L|R } =   !{Set.range (fun (z : R) ↦ Dual z) | Set.range (fun (z : L) ↦ Dual z)} :=by
+  rw [Dual]
+  have := Comp_nAtom_iff.mp <| ofSets_IsComp <| Player.cases L R
+  rw [if_neg this]
+  congr
+  ext p _
+  cases p <;> simp
+
+theorem Dual_option {A : Type} {g g' : Primordial A} {p : Player} (hg' : g' ∈ moves g p) : Dual g' ∈ moves (Dual g) (-p) := by 
+  have hag :¬ IsAtom g = true := by 
+       grind [= eq_def, = moves.eq_def, = IsAtom.eq_def]
+  unfold Dual
+  conv => 
+    left
+    unfold Dual
+  rw [if_neg hag]
+  cases h:IsAtom g'
+  · rw [if_neg (by simp)]
+    cases p
+    · rw [Player.neg_left,moves_ofSets, Player.neg_right, Set.mem_range, Subtype.exists]
+      use g', hg'
+      simp [h]
+    · rw [Player.neg_right, moves_ofSets, Player.neg_left, Set.mem_range, Subtype.exists]
+      use g', hg'
+      simp [h]
+  · rw [if_pos (by simp), moves_ofSets, Set.mem_range, Subtype.exists, neg_neg]
+    use g', hg'
+    simp [h]
+
 /-- given a function on the underlying sets A, B, this is the function from Primordial A to Primordial B that naturally arises. uses recursion -/
 noncomputable def MAP (f : A → B) (x : Primordial.{u} A) : Primordial B := 
 --  match val: moves_or x with
