@@ -76,7 +76,7 @@ lemma intrRel.leq.refl {A : Type} [Preorder A] (g : Primordial.{u} A) : g ≤ g:
 termination_by g
 decreasing_by Primordial_wf
 
-lemma atomic_leq {A : Type} [Preorder A] (g k : Primordial.{u} A) (hg : IsAtom g) (hk : IsAtom k) : Sum.getLeft (moves_or g) hg ≤ Sum.getLeft (moves_or k) hk → g≤ k:= 
+lemma atomic_leq {A : Type} [Preorder A] (g k : Primordial.{u} A) (hg : IsAtom g) (hk : IsAtom k) : Sum.getLeft (moves_or g) hg ≤ Sum.getLeft (moves_or k) hk ↔ g≤ k:= 
       have thisR : IsEmpty (Subtype (λ x => x∈ kᴿ)):= by
                 rw [Set.isEmpty_coe_sort]
                 rw [moves]
@@ -85,51 +85,50 @@ lemma atomic_leq {A : Type} [Preorder A] (g k : Primordial.{u} A) (hg : IsAtom g
                 rw [Set.isEmpty_coe_sort]
                 rw [moves]
                 rw [dif_neg (Atom_nComp_iff.mp hg)]
-      by
-      intro h
-      rw [intrRel.leq.simp]
-      constructor
-      · rw [← @Subtype.forall _ _ (λ x => x.1 ◃ k)]
-        rw [← @Subtype.forall _ _ (λ x => g ◃ x.1)]
-        repeat rw [IsEmpty.forall_iff]
-        simp
-      · intro _  
-        rw [intrRel.tri]
-        right
-        use hg, hk
-
-lemma leq_atomic {A : Type} [Preorder A] (g k : Primordial.{u} A) (hg : IsAtom g) (hk : IsAtom k) : g≤ k → Sum.getLeft (moves_or g) hg ≤ Sum.getLeft (moves_or k) hk := by 
-  intro hgk
-  rw [intrRel.leq.simp] at hgk
-  apply And.right at hgk
-  specialize hgk <| Or.inl hg
-  rw [intrRel.tri] at hgk
-  simp only [intrRel.leq.format] at hgk
-  have thisR : IsEmpty (Subtype (λ x => x∈ gᴿ)):= by
+      have thisR' : IsEmpty (Subtype (λ x => x∈ gᴿ)):= by
                 rw [Set.isEmpty_coe_sort]
                 rw [moves]
                 rw [dif_neg (Atom_nComp_iff.mp hg)]
-  have thisL : IsEmpty (Subtype (λ x => x∈ kᴸ)):= by
+      have thisL' : IsEmpty (Subtype (λ x => x∈ kᴸ)):= by
                 rw [Set.isEmpty_coe_sort]
                 rw [moves]
                 rw [dif_neg (Atom_nComp_iff.mp hk)]
-  cases hgk
-  case inl ht => 
-    cases ht
-    case inl hl => 
-         rw [← @Subtype.exists _ _ (λ x => x.1 ≤ k)] at hl
-         rw [IsEmpty.exists_iff] at hl
-         contradiction
-    case inr hr =>
-         rw [← @Subtype.exists _ _ (λ x => g ≤ x.1) ] at hr
-         rw [IsEmpty.exists_iff] at hr
-         contradiction
-  case inr ha => 
-       obtain ⟨_,_,h⟩ := ha
-       assumption
+      by
+      constructor
+      · intro h
+        rw [intrRel.leq.simp]
+        constructor
+        · rw [← @Subtype.forall _ _ (λ x => x.1 ◃ k)]
+          rw [← @Subtype.forall _ _ (λ x => g ◃ x.1)]
+          repeat rw [IsEmpty.forall_iff]
+          simp
+        · intro _  
+          rw [intrRel.tri]
+          right
+          use hg, hk
+      ·   intro hgk
+          rw [intrRel.leq.simp] at hgk
+          apply And.right at hgk
+          specialize hgk <| Or.inl hg
+          rw [intrRel.tri] at hgk
+          simp only [intrRel.leq.format] at hgk
+          cases hgk
+          case inl ht => 
+            cases ht
+            case inl hl => 
+               rw [← @Subtype.exists _ _ (λ x => x.1 ≤ k)] at hl
+               rw [IsEmpty.exists_iff] at hl
+               contradiction
+            case inr hr =>
+               rw [← @Subtype.exists _ _ (λ x => g ≤ x.1) ] at hr
+               rw [IsEmpty.exists_iff] at hr
+               contradiction
+          case inr ha => 
+               obtain ⟨_,_,h⟩ := ha
+               assumption
 
 
-
+-- duality lemmas for leq and tri.
 mutual
 lemma leq_Dual' {A : Type} [Preorder A] (g k : Primordial A) : g ≤ k → ((@Dual Aᵒᵈ k) ≤ (@Dual Aᵒᵈ g)) := by
   intro h
@@ -144,7 +143,7 @@ lemma leq_Dual' {A : Type} [Preorder A] (g k : Primordial A) : g ≤ k → ((@Du
        apply And.left at h
        apply And.right at h
        specialize h (@Dual Aᵒᵈ l) this
-       apply tri_Dual at h
+       apply tri_Dual' at h
        rw [Dual_selfInverse] at h
        assumption 
   have hr : ∀ r ∈ (@Dual Aᵒᵈ g)ᴿ, (@Dual Aᵒᵈ k)◃ r := by 
@@ -157,7 +156,7 @@ lemma leq_Dual' {A : Type} [Preorder A] (g k : Primordial A) : g ≤ k → ((@Du
        apply And.left at h
        apply And.left at h
        specialize h (@Dual Aᵒᵈ r) this
-       apply tri_Dual at h
+       apply tri_Dual' at h
        rw [Dual_selfInverse] at h
        assumption 
   have ha : IsAtom k.Dual = true ∨ IsAtom g.Dual = true → (@Dual Aᵒᵈ k)◃(@Dual Aᵒᵈ g) := by 
@@ -166,12 +165,12 @@ lemma leq_Dual' {A : Type} [Preorder A] (g k : Primordial A) : g ≤ k → ((@Du
     apply And.right at h
     rw [← @Dual_IsAtom _ g, ← @Dual_IsAtom _ k] at h
     specialize h (h'.symm)
-    exact tri_Dual _ _ h
+    exact tri_Dual' _ _ h
   exact ⟨⟨hl,hr⟩,ha⟩
 termination_by (g,k, 1)
 decreasing_by Primordial_wf
 
-lemma tri_Dual {A : Type} [ t : Preorder A] (g k : Primordial A) : g ◃ k → ((@Dual Aᵒᵈ k) ◃ (@Dual Aᵒᵈ g)) := by
+lemma tri_Dual' {A : Type} [ t : Preorder A] (g k : Primordial A) : g ◃ k → ((@Dual Aᵒᵈ k) ◃ (@Dual Aᵒᵈ g)) := by
   intro h
   rw [intrRel.tri] at h
   cases h
@@ -221,6 +220,26 @@ termination_by (g,k, 0)
 decreasing_by Primordial_wf
 end
 
+/-- Duality theorems for `leq` -/
+theorem leq_Dual {A : Type} [t : Preorder A] (g k : Primordial A) : g ≤ k ↔ ((@Dual Aᵒᵈ k) ≤ (@Dual Aᵒᵈ g)) := 
+  by
+  constructor
+  · exact leq_Dual' g k
+  · intro h
+    apply leq_Dual' at h
+    repeat erw [Dual_selfInverse] at h
+    assumption
+
+/-- Duality theorems for `tri` -/
+theorem tri_Dual {A : Type} [t : Preorder A] (g k : Primordial A) : g ◃ k ↔ ((@Dual Aᵒᵈ k) ◃ (@Dual Aᵒᵈ g)) := 
+  by
+  constructor
+  · exact tri_Dual' g k
+  · intro h
+    apply tri_Dual' at h
+    repeat erw [Dual_selfInverse] at h
+    assumption
+
 -- a proof of transitivity
 mutual
 
@@ -262,7 +281,7 @@ lemma intrRel.transtl {A : Type} [Preorder A] (g j k : Primordial.{u} A) : (g �
            rw [false_or] at ht
            obtain ⟨l,hl,hjl⟩:= ht
            rw [← leq.simp] at h2
-           have this'': g ≤ j := atomic_leq _ _ _ _ c
+           have this'': g ≤ j := (atomic_leq .. ).mp c
            have := intrRel.trans _ _ _ this'' hjl
            rw [tri]
            left;right
@@ -313,7 +332,7 @@ lemma intrRel.translt {A : Type} [Preorder A] (g j k : Primordial.{u} A) : (g �
       cases this
       case inl ht => 
            obtain ⟨l,hl,hjl⟩:= ht
-           have this'': j ≤ k := atomic_leq _ _ _ _ c
+           have this'': j ≤ k := (atomic_leq .. ).mp c
            have := intrRel.trans _ _ _ hjl this''
            rw [tri]
            left;left
