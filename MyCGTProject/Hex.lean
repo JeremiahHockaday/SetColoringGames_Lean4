@@ -399,15 +399,40 @@ example {A : Type} [Preorder A] (g k : Primordial A) : g≃ k ↔ k≃ g  := by
   rw [and_comm]
 
 
---lemma left_sub {A : Type} [Preorder A] {L R : Set (Primordial A)} [Small.{u} L] [Small.{u} R] {k k' : Primordial A} (hk : k ≤ k'): !{{k}∪L|R} ≤ !{{k'}∪L|R} := sorry
+lemma left_sub {A : Type} [Preorder A] {L R : Set (Primordial A)} [Small.{u} L] [Small.{u} R] {k k' : Primordial A} (hk : k ≤ k') : !{insert k L|R} ≤ !{insert k' L|R} := by
+      rw [intrRel.leq.simp]
+      have tk  := ofSets_IsComp <| Player.cases (insert k L) R
+      have tk' := ofSets_IsComp <| Player.cases (insert k' L) R
+      rw [Comp_nAtom_iff] at tk tk'
+      have hl : ∀ l ∈ !{{k} ∪ L | R}ᴸ, l◃!{{k'} ∪ L | R} := by 
+              intro l hl
+              rw [ moves_ofSets, Player.cases, Set.singleton_union,Set.mem_insert_iff] at hl
+              rw [intrRel.tri]
+              left;right
+              cases hl
+              case inl hk' => 
+                   use k', (by simp)
+                   simp [hk',hk]
+              case inr hk => 
+                   use l, (by simp [hk])
+                   simp
+      have hr : ∀ r ∈ !{{k'} ∪ L | R}ᴿ, !{{k} ∪ L | R}◃r := by 
+              intro r hr
+              rw [moves_ofSets] at hr
+              simp only [Player.cases]at hr
+              rw [intrRel.tri]
+              left;left
+              use r, (by simp [hr])
+              simp
+      exact ⟨⟨hl,hr⟩,by simp [tk,tk']⟩
 
-
-/-- For this proof it would be nice to prove it using duality, somehow? based on `left_sub`?  I am not sure how to do this... -/
---lemma right_sub {A : Type} [Preorder A] {L R : Set (Primordial A)} [Small.{u} L] [Small.{u} R] {k k' : Primordial A} (hk : k ≤ k'): !{L|{k}∪R} ≤ !{L|{k'}∪R} := sorry
-
-
-
-
+-- the first experiment in proving something by duality. it was a pain in the ... but it worked! I would like to make the process less painful in the future...
+lemma right_sub {A : Type} [Preorder A] {L R : Set (Primordial A)} [Small.{u} L] [Small.{u} R] {k k' : Primordial A} (hk : k ≤ k') : !{L| insert k R} ≤ !{L| insert k' R} := by
+  rw [leq_Dual] at hk ⊢
+  erw [@Dual_ofSets Aᵒᵈ L (insert k' R)]
+  erw [@Dual_ofSets Aᵒᵈ L (insert k  R)]
+  simp only [Set.range_insert]
+  exact @left_sub Aᵒᵈ _ (Set.range fun (y : R) ↦ @Dual Aᵒᵈ (y.1)) (Set.range fun (y : L) ↦ @Dual Aᵒᵈ y.1) _ _ _ _ hk
 
 --contextual order on games
 def contxRel {A : Type} [Preorder A] (g h : Primordial.{u} A) : Prop := ∀ x : Primordial.{u} ({f : A → Bool | Monotone f}), oc (MAP eval (g + x)) ≤ oc (MAP eval (h + x))
