@@ -17,6 +17,7 @@ open Primordial
 
 mutual
 
+
 /-- this is obviosly not an ideal way of defining leq, but it is necessary to convince lean that the functions are mutually recursive. this is because of the weird way in which lean handles mutual recursion. -/
 def intrRel.leq {A : Type} [Preorder A] (g k : Primordial.{u} A) : Prop := 
 ((∀ l∈ gᴸ, intrRel.tri l k) ∧ 
@@ -33,8 +34,6 @@ termination_by ((g,k),0)
 decreasing_by Primordial_wf
 
 end
-
-
 
 instance {A : Type} [Preorder A] : LE (Primordial A) where
 le := intrRel.leq
@@ -76,90 +75,79 @@ lemma intrRel.leq.refl {A : Type} [Preorder A] (g : Primordial.{u} A) : g ≤ g:
 termination_by g
 decreasing_by Primordial_wf
 
+lemma forall_Atom {A : Type} {g : Primordial A} (hg : IsAtom g) (p : Player) {q : Primordial A → Prop} : (∀ g' ∈ moves g p, q g')↔ True := by
+      have : IsEmpty (Subtype (λ x => x∈ moves g p)) := by
+         rw [Set.isEmpty_coe_sort, moves]
+         rw [dif_neg (Atom_nComp_iff.mp hg)]
+      rw [← @Subtype.forall _ _ (λ x => q x.1)]
+      rw [IsEmpty.forall_iff]
+
+lemma exists_Atom {A : Type} {g : Primordial A} (hg : IsAtom g) (p : Player) {q : Primordial A → Prop} : (∃ g' ∈ moves g p, q g')↔ False := by
+      simp [forall_Atom hg]
+
 lemma atomic_leq {A : Type} [Preorder A] (g k : Primordial.{u} A) (hg : IsAtom g) (hk : IsAtom k) : Sum.getLeft (moves_or g) hg ≤ Sum.getLeft (moves_or k) hk ↔ g≤ k:= 
-      have thisR : IsEmpty (Subtype (λ x => x∈ kᴿ)):= by
-                rw [Set.isEmpty_coe_sort]
-                rw [moves]
-                rw [dif_neg (Atom_nComp_iff.mp hk)]
-      have thisL : IsEmpty (Subtype (λ x => x∈ gᴸ)):= by
-                rw [Set.isEmpty_coe_sort]
-                rw [moves]
-                rw [dif_neg (Atom_nComp_iff.mp hg)]
-      have thisR' : IsEmpty (Subtype (λ x => x∈ gᴿ)):= by
-                rw [Set.isEmpty_coe_sort]
-                rw [moves]
-                rw [dif_neg (Atom_nComp_iff.mp hg)]
-      have thisL' : IsEmpty (Subtype (λ x => x∈ kᴸ)):= by
-                rw [Set.isEmpty_coe_sort]
-                rw [moves]
-                rw [dif_neg (Atom_nComp_iff.mp hk)]
       by
       constructor
       · intro h
         rw [intrRel.leq.simp]
         constructor
-        · rw [← @Subtype.forall _ _ (λ x => x.1 ◃ k)]
-          rw [← @Subtype.forall _ _ (λ x => g ◃ x.1)]
-          repeat rw [IsEmpty.forall_iff]
-          simp
+        · simp [forall_Atom hg,forall_Atom hk]
         · intro _  
           rw [intrRel.tri]
           right
           use hg, hk
-      ·   intro hgk
-          rw [intrRel.leq.simp] at hgk
-          apply And.right at hgk
-          specialize hgk <| Or.inl hg
-          rw [intrRel.tri] at hgk
-          simp only [intrRel.leq.format] at hgk
-          cases hgk
-          case inl ht => 
-            cases ht
-            case inl hl => 
-               rw [← @Subtype.exists _ _ (λ x => x.1 ≤ k)] at hl
-               rw [IsEmpty.exists_iff] at hl
-               contradiction
-            case inr hr =>
-               rw [← @Subtype.exists _ _ (λ x => g ≤ x.1) ] at hr
-               rw [IsEmpty.exists_iff] at hr
-               contradiction
-          case inr ha => 
+      · intro hgk
+        rw [intrRel.leq.simp] at hgk
+        apply And.right at hgk
+        specialize hgk <| Or.inl hg
+        rw [intrRel.tri] at hgk
+        simp only [intrRel.leq.format] at hgk
+        cases hgk
+        case inl ht => 
+            simp [exists_Atom hg, exists_Atom hk] at ht
+        case inr ha => 
                obtain ⟨_,_,h⟩ := ha
                assumption
+
+/-- this defines the `gᵒᵖ` notation, which makes talking about the opposite of a game much easier. I suppose I could have made this an instance of the negation notation. This allows you to not think about what the opposite of a poset is in mathlib. -/
+noncomputable abbrev op {A : Type} [Preorder A] (g : Primordial A) := @Dual Aᵒᵈ g
+notation g:max "ᵒᵖ" => op g
 
 
 -- duality lemmas for leq and tri.
 mutual
-lemma leq_Dual' {A : Type} [Preorder A] (g k : Primordial A) : g ≤ k → ((@Dual Aᵒᵈ k) ≤ (@Dual Aᵒᵈ g)) := by
+lemma leq_Dual' {A : Type} [Preorder A] (g k : Primordial A) : g ≤ k → (kᵒᵖ ≤ gᵒᵖ) := by
   intro h
   rw [intrRel.leq.simp]
-  have hl : ∀ l ∈ (@Dual Aᵒᵈ k)ᴸ, l◃ (@Dual Aᵒᵈ g) := by 
+  have hl : ∀ l ∈ (kᵒᵖ)ᴸ, l◃ (gᵒᵖ) := by 
        intro l hl
-       have :(@Dual Aᵒᵈ l) ∈ kᴿ  := by 
+       have :(lᵒᵖ) ∈ kᴿ  := by 
             have := Dual_option hl
             rw [Dual_selfInverse] at this
             assumption
        rw [intrRel.leq.simp] at h
        apply And.left at h
        apply And.right at h
-       specialize h (@Dual Aᵒᵈ l) this
+       specialize h (lᵒᵖ) this
        apply tri_Dual' at h
+       repeat rw [op] at h
        rw [Dual_selfInverse] at h
        assumption 
-  have hr : ∀ r ∈ (@Dual Aᵒᵈ g)ᴿ, (@Dual Aᵒᵈ k)◃ r := by 
+  have hr : ∀ r ∈ (gᵒᵖ)ᴿ, (kᵒᵖ)◃ r := by 
        intro r hr
-       have :(@Dual Aᵒᵈ r) ∈ gᴸ  := by 
+       have :(rᵒᵖ) ∈ gᴸ  := by 
             have := Dual_option hr
             rw [Dual_selfInverse] at this
             assumption
        rw [intrRel.leq.simp] at h
        apply And.left at h
        apply And.left at h
-       specialize h (@Dual Aᵒᵈ r) this
+       specialize h (rᵒᵖ) this
        apply tri_Dual' at h
+       repeat rw [op] at h
        rw [Dual_selfInverse] at h
        assumption 
-  have ha : IsAtom k.Dual = true ∨ IsAtom g.Dual = true → (@Dual Aᵒᵈ k)◃(@Dual Aᵒᵈ g) := by 
+  have ha : IsAtom k.Dual = true ∨ IsAtom g.Dual = true → (kᵒᵖ)◃(gᵒᵖ) := by 
     intro h'
     rw [intrRel.leq.simp] at h
     apply And.right at h
@@ -170,7 +158,7 @@ lemma leq_Dual' {A : Type} [Preorder A] (g k : Primordial A) : g ≤ k → ((@Du
 termination_by (g,k, 1)
 decreasing_by Primordial_wf
 
-lemma tri_Dual' {A : Type} [ t : Preorder A] (g k : Primordial A) : g ◃ k → ((@Dual Aᵒᵈ k) ◃ (@Dual Aᵒᵈ g)) := by
+lemma tri_Dual' {A : Type} [ t : Preorder A] (g k : Primordial A) : g ◃ k → ((kᵒᵖ) ◃ (gᵒᵖ)) := by
   intro h
   rw [intrRel.tri] at h
   cases h
@@ -178,7 +166,7 @@ lemma tri_Dual' {A : Type} [ t : Preorder A] (g k : Primordial A) : g ◃ k → 
     cases hc
     case inl hr =>
       obtain ⟨r,hr,h'⟩:= hr
-      have : (@Dual Aᵒᵈ r) ∈ (@Dual Aᵒᵈ g)ᴸ := Dual_option hr
+      have : (rᵒᵖ) ∈ (gᵒᵖ)ᴸ := Dual_option hr
       rw [intrRel.leq.format] at h'
       apply leq_Dual' at h'
       rw [intrRel.tri]
@@ -188,7 +176,7 @@ lemma tri_Dual' {A : Type} [ t : Preorder A] (g k : Primordial A) : g ◃ k → 
       exact h'
     case inr hl =>
       obtain ⟨l,hl,h'⟩:= hl
-      have : (@Dual Aᵒᵈ l) ∈ (@Dual Aᵒᵈ k)ᴿ := Dual_option hl
+      have : (lᵒᵖ) ∈ (kᵒᵖ)ᴿ := Dual_option hl
       rw [intrRel.leq.format] at h'
       apply leq_Dual' at h'
       rw [intrRel.tri]
@@ -204,10 +192,10 @@ lemma tri_Dual' {A : Type} [ t : Preorder A] (g k : Primordial A) : g ◃ k → 
     have hg' :IsAtom g.Dual = true := by 
          rw [Dual_IsAtom]
          exact hg
-    have tk :@Dual Aᵒᵈ k = k := by
+    have tk :kᵒᵖ = k := by
          unfold Dual
          erw [if_pos hk]
-    have tg :@Dual Aᵒᵈ g = g := by 
+    have tg :gᵒᵖ = g := by 
          unfold Dual
          erw [if_pos hg]
     rw [tk,tg]
@@ -221,22 +209,24 @@ decreasing_by Primordial_wf
 end
 
 /-- Duality theorems for `leq` -/
-theorem leq_Dual {A : Type} [t : Preorder A] (g k : Primordial A) : g ≤ k ↔ ((@Dual Aᵒᵈ k) ≤ (@Dual Aᵒᵈ g)) := 
+theorem leq_Dual {A : Type} [t : Preorder A] (g k : Primordial A) : g ≤ k ↔ (kᵒᵖ ≤ gᵒᵖ) := 
   by
   constructor
   · exact leq_Dual' g k
   · intro h
     apply leq_Dual' at h
+    dsimp [op] at h
     repeat erw [Dual_selfInverse] at h
     assumption
 
 /-- Duality theorems for `tri` -/
-theorem tri_Dual {A : Type} [t : Preorder A] (g k : Primordial A) : g ◃ k ↔ ((@Dual Aᵒᵈ k) ◃ (@Dual Aᵒᵈ g)) := 
+theorem tri_Dual {A : Type} [t : Preorder A] (g k : Primordial A) : g ◃ k ↔ ((kᵒᵖ) ◃ (gᵒᵖ)) := 
   by
   constructor
   · exact tri_Dual' g k
   · intro h
     apply tri_Dual' at h
+    dsimp [op] at h
     repeat erw [Dual_selfInverse] at h
     assumption
 
@@ -268,16 +258,11 @@ lemma intrRel.transtl {A : Type} [Preorder A] (g j k : Primordial.{u} A) : (g �
       have :j◃k := by 
         exact (And.right h2) (Or.inl hj)
       rw [tri] at this
-      have thisR : IsEmpty (Subtype (λ x => x∈ jᴿ)):= by
-                rw [Set.isEmpty_coe_sort]
-                rw [moves]
-                rw [dif_neg (Atom_nComp_iff.mp hj)]
       cases this
       case inl ht => 
            conv at ht =>
              left
-             rw [← @Subtype.exists _ _ (λ x => leq x.1 k)]
-             rw [@IsEmpty.exists_iff _ thisR]
+             simp [exists_Atom hj]
            rw [false_or] at ht
            obtain ⟨l,hl,hjl⟩:= ht
            rw [← leq.simp] at h2
@@ -320,14 +305,9 @@ lemma intrRel.translt {A : Type} [Preorder A] (g j k : Primordial.{u} A) : (g �
       rw [leq.simp] at h1
       have :g◃j := (And.right h1) (Or.inr hj)
       rw [tri] at this
-      have thisL : IsEmpty (Subtype (λ x => x∈ jᴸ)):= by
-                rw [Set.isEmpty_coe_sort]
-                rw [moves]
-                rw [dif_neg (Atom_nComp_iff.mp hj)]
       conv at this =>
              left;right
-             rw [← @Subtype.exists _ _ (λ x => leq g x.1)]
-             rw [@IsEmpty.exists_iff _ thisL]
+             simp [exists_Atom hj]
       rw [or_false] at this
       cases this
       case inl ht => 
@@ -366,13 +346,9 @@ lemma intrRel.trans {A : Type} [Preorder A] (g j k : Primordial.{u} A) : (g ≤ 
        intro h
        cases h
        case inl h' =>
-            have thisR : IsEmpty (Subtype (λ x => x∈ gᴿ)):= by
-                rw [Set.isEmpty_coe_sort, moves, dif_neg (Atom_nComp_iff.mp h')]
             rw [leq.simp] at h1
             exact intrRel.transtl _ _ _ ((And.right h1) (Or.inl h')) h2
        case inr h' => 
-            have thisR : IsEmpty (Subtype (λ x => x∈ kᴸ)):= by
-                rw [Set.isEmpty_coe_sort, moves, dif_neg (Atom_nComp_iff.mp h')]
             rw [leq.simp] at h2
             exact intrRel.translt _ _ _ h1 ((And.right h2) (Or.inr h')) 
   exact ⟨⟨t1,t2⟩,t3⟩
@@ -386,53 +362,95 @@ le_refl := intrRel.leq.refl
 le_trans := intrRel.trans
 
 abbrev intrRel.eq {A : Type} [Preorder A] (g k : Primordial A) : Prop := g≤ k ∧ k≤ g
+@[refl]
+lemma intrEq.refl {A : Type} [Preorder A] : ∀ (x : Primordial A), intrRel.eq x x := by simp
 
-instance {A : Type} [Preorder A] : Equivalence (@intrRel.eq A _) where
-refl := by simp
-symm  := by grind
+@[symm]
+lemma intrEq.symm {A : Type} [Preorder A] : ∀ {x y : Primordial A}, intrRel.eq x y ↔ intrRel.eq y x := by grind
+
+instance intrEq {A : Type} [Preorder A] : Equivalence (@intrRel.eq A _) where
+refl := intrEq.refl
+symm  := intrEq.symm.mp
 trans := by grind
 
 notation g:max "≃" k:max => intrRel.eq g k
 
-example {A : Type} [Preorder A] (g k : Primordial A) : g≃ k ↔ k≃ g  := by
+theorem eq_Dual {A : Type} [t : Preorder A] (g k : Primordial A) : g ≃ k ↔ ((kᵒᵖ) ≃ (gᵒᵖ)) := by 
   repeat rw [intrRel.eq]
-  rw [and_comm]
+  rw [leq_Dual g k]
+  rw [leq_Dual k g]
 
 
-lemma left_sub {A : Type} [Preorder A] {L R : Set (Primordial A)} [Small.{u} L] [Small.{u} R] {k k' : Primordial A} (hk : k ≤ k') : !{insert k L|R} ≤ !{insert k' L|R} := by
+lemma lemma_4_8_left {A : Type} [Preorder A] {L R : Set (Primordial A)} [Small.{u} L] [Small.{u} R] {k k' : Primordial A} (hk : k ≤ k') : !{insert k L|R} ≤ !{insert k' L|R} := by
       rw [intrRel.leq.simp]
       have tk  := ofSets_IsComp <| Player.cases (insert k L) R
       have tk' := ofSets_IsComp <| Player.cases (insert k' L) R
       rw [Comp_nAtom_iff] at tk tk'
-      have hl : ∀ l ∈ !{{k} ∪ L | R}ᴸ, l◃!{{k'} ∪ L | R} := by 
-              intro l hl
-              rw [ moves_ofSets, Player.cases, Set.singleton_union,Set.mem_insert_iff] at hl
-              rw [intrRel.tri]
-              left;right
-              cases hl
-              case inl hk' => 
-                   use k', (by simp)
-                   simp [hk',hk]
-              case inr hk => 
-                   use l, (by simp [hk])
-                   simp
-      have hr : ∀ r ∈ !{{k'} ∪ L | R}ᴿ, !{{k} ∪ L | R}◃r := by 
-              intro r hr
-              rw [moves_ofSets] at hr
-              simp only [Player.cases]at hr
-              rw [intrRel.tri]
-              left;left
-              use r, (by simp [hr])
-              simp
-      exact ⟨⟨hl,hr⟩,by simp [tk,tk']⟩
+      refine ⟨?_,by simp_all⟩
+      constructor <;> {intro g;rw [intrRel.tri];aesop}
 
--- the first experiment in proving something by duality. it was a pain in the ... but it worked! I would like to make the process less painful in the future...
-lemma right_sub {A : Type} [Preorder A] {L R : Set (Primordial A)} [Small.{u} L] [Small.{u} R] {k k' : Primordial A} (hk : k ≤ k') : !{L| insert k R} ≤ !{L| insert k' R} := by
+-- the first experiment in proving something by duality. it was a pain in the **** but it worked! I would like to make the process less painful in the future...
+lemma lemma_4_8_right {A : Type} [Preorder A] {L R : Set (Primordial A)} [Small.{u} L] [Small.{u} R] {k k' : Primordial A} (hk : k ≤ k') : !{L| insert k R} ≤ !{L| insert k' R} := by
   rw [leq_Dual] at hk ⊢
+  dsimp [op]
   erw [@Dual_ofSets Aᵒᵈ L (insert k' R)]
   erw [@Dual_ofSets Aᵒᵈ L (insert k  R)]
   simp only [Set.range_insert]
-  exact @left_sub Aᵒᵈ _ (Set.range fun (y : R) ↦ @Dual Aᵒᵈ (y.1)) (Set.range fun (y : L) ↦ @Dual Aᵒᵈ y.1) _ _ _ _ hk
+  exact @lemma_4_8_left _ _ (Set.range fun (y : R) ↦ @Dual Aᵒᵈ (y.1)) (Set.range fun (y : L) ↦ @Dual Aᵒᵈ y.1) _ _ _ _ hk
+
+lemma lemma_4_9_left {A : Type} [Preorder A] {L R : Set (Primordial A)} [Small.{u} L] [Small.{u} R] {k : Primordial A} : !{L|R}≤!{insert k L|R} := by 
+      rw [intrRel.leq.simp]
+      have tk  := ofSets_IsComp <| Player.cases (insert k L) R
+      have tk' := ofSets_IsComp <| Player.cases  L R
+      refine ⟨?_,by simp_all⟩
+      constructor <;> {intro g;rw [intrRel.tri];aesop}
+
+lemma lemma_4_9_right {A : Type} [Preorder A] {L R : Set (Primordial A)} [Small.{u} L] [Small.{u} R] {k : Primordial A} : !{L|insert k R}≤!{L|R} := by 
+      rw [intrRel.leq.simp]
+      have tk  := ofSets_IsComp <| Player.cases L R
+      have tk' := ofSets_IsComp <| Player.cases L (insert k R)
+      refine ⟨?_,by simp_all⟩
+      constructor <;> {intro g;rw [intrRel.tri];aesop}
+
+lemma giftHorse_left {A : Type} [Preorder A] {L R : Set (Primordial A)} [Small.{u} L] [Small.{u} R] {k : Primordial A} : k◃ !{L|R}↔ !{L|R}≃!{insert k L|R} := by 
+      have : k◃ !{insert k L|R} := by rw [intrRel.tri];aesop
+      have mpr : !{L|R}≃!{insert k L|R}→ k◃ !{L|R} := by
+             intro h
+             rw [intrRel.eq] at h
+             exact intrRel.transtl _ _ _ this h.right
+      have mp : k◃ !{L|R}→ !{L|R}≃!{insert k L|R} := by
+             intro h
+             rw [intrRel.eq]
+             refine ⟨lemma_4_9_left,?_⟩
+             rw [intrRel.leq.simp]
+             have tk :=ofSets_IsComp <| Player.cases (insert k L) R
+             have tk' := ofSets_IsComp <| Player.cases L R
+             refine ⟨?_, by simp_all⟩
+             constructor 
+             · intro g hg; rw [moves_ofSets, Player.cases, Set.mem_insert_iff] at hg
+               cases hg
+               case inl h' => aesop
+               case inr h' => rw [intrRel.tri]; aesop
+             · intro g hg;rw [intrRel.tri]; aesop
+      exact ⟨mp,mpr⟩
+
+lemma giftHorse_right {A : Type} [Preorder A] {L R : Set (Primordial A)} [Small.{u} L] [Small.{u} R] {k : Primordial A} : !{L|R}◃k↔ !{L|R}≃!{L|insert k R} := by 
+      rw [tri_Dual, eq_Dual,intrEq.symm]
+      repeat rw [op]
+      erw [@Dual_ofSets Aᵒᵈ L (insert k R)]
+      repeat erw [@Dual_ofSets Aᵒᵈ L R]
+      simp only [Set.range_insert, giftHorse_left]
+
+
+
+
+
+
+
+
+
+
+
 
 --contextual order on games
 def contxRel {A : Type} [Preorder A] (g h : Primordial.{u} A) : Prop := ∀ x : Primordial.{u} ({f : A → Bool | Monotone f}), oc (MAP eval (g + x)) ≤ oc (MAP eval (h + x))
@@ -443,8 +461,3 @@ notation g:max "≤ᶜ" h:max => contxRel g h
 
 
 
--- need to generalize this, do not want a left and right version? should be able to supply a player p and get the corresponding theorem, not sure how to express that...
--- lemma giftHorseL {A : Type} [Preorder A] {s t gs : Set (Primordial.{u} A)} [Small.{u} s] [Small.{u} t] [Small.{u} gs] : !{s|t} ≤ !{s∪gs|t} :=
-
-
--- !{s|t∪gs} ≤ !{s|t}
