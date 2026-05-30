@@ -26,15 +26,15 @@ def unexpDual : Unexpander
 
 mutual
 /-- The definition of `leq` via mutual induction -/
-def leq {A : Type} [Preorder A] (g k : Primordial.{u} A) : Prop := 
-((∀ l∈ gᴸ, tri l k) ∧ 
-(∀ r∈ kᴿ, tri g r)) ∧ 
+def leq {A : Type} [Preorder A] (g k : Primordial.{u} A) : Prop :=
+((∀ l∈ gᴸ, tri l k) ∧
+(∀ r∈ kᴿ, tri g r)) ∧
 (IsAtom g=true∨IsAtom k=true →  tri g k)
 termination_by ((g,k),1)
 decreasing_by Primordial_wf
 
 /-- The definition of `tri` via mutual induction -/
-def tri {A : Type} [Preorder A] (g k : Primordial.{u} A) : Prop := 
+def tri {A : Type} [Preorder A] (g k : Primordial.{u} A) : Prop :=
 ((∃ r, ∃ _:r∈ gᴿ, leq r k) ∨
 (∃l,∃ _: l∈ kᴸ, leq g l)) ∨
 ∃ hg: IsAtom g, ∃ hk : IsAtom k, Sum.getLeft (moves_or g) hg ≤ Sum.getLeft (moves_or k) hk
@@ -54,10 +54,10 @@ notation3 g:max "◃" h:max => tri g h
 
 
 
-lemma leq.simp {A : Type} [Preorder A] {g h : Primordial.{u} A} : g≤ h ↔ 
-((∀ l∈ gᴸ, tri l h) ∧ 
-(∀ r∈ hᴿ, tri g r)) ∧ 
-(IsAtom g=true∨IsAtom h=true → g◃h) := by  
+lemma leq.simp {A : Type} [Preorder A] {g h : Primordial.{u} A} : g≤ h ↔
+((∀ l∈ gᴸ, tri l h) ∧
+(∀ r∈ hᴿ, tri g r)) ∧
+(IsAtom g=true∨IsAtom h=true → g◃h) := by
   rw [← leq.format,leq]
 
 lemma leq.refl {A : Type} [Preorder A] (g : Primordial.{u} A) : g ≤ g:= by
@@ -447,40 +447,6 @@ notation:max x:max "%" => mk_atom x
 --#check λ x:ℕ => x%
 
 
-/-- We define the property of being a set coloring game: That is, a (composite) game where the left and right sets are non-empty. -/
-def IsSC {A : Type} (x : Primordial A) : Prop := IsAtom x ∨ (∀ p, ((moves x p).Nonempty ∧ ∀ x'∈ moves x p, IsSC x'))
-termination_by x
-decreasing_by Primordial_wf
-
-lemma Atom_IsSC {A : Type} {x : Primordial A} (hx : IsAtom x): IsSC x := by
-  rw [IsSC]
-  exact Or.inl hx
-
-lemma IsSC_OfSets {A : Type} {s : Player → Set (Primordial A)} (hs : ∀ p, Small (s p)) (hn : ∀ p, (s p).Nonempty) (hsc : ∀ p, ∀ j ∈ (s p), IsSC j) : IsSC !{s} := by 
-  rw [IsSC]
-  right
-  intro p
-  specialize hs p
-  specialize hn p
-  refine ⟨by simp [hn],?_⟩
-  rw [moves_ofSets]
-  intro x hx
-  specialize hsc p x hx
-  assumption
-
-lemma IsSC_OfSets' {A : Type} {L R : Set (Primordial A)} [il : Small.{u} L] [ir : Small R] (hl : L.Nonempty) (hr : R.Nonempty) (hl' : ∀ l ∈ L, IsSC l) (hr' : ∀ r ∈ R, IsSC r) : IsSC !{L|R} := by
-  let s : Player → Set (Primordial A) := Player.cases L R
-  have hs  : ∀ p, Small.{u} (s p) := by simp [s,il,ir]
-  have hn  : ∀ p, (s p).Nonempty := by simp [s,hl,hr]
-  have hsc : ∀ p, ∀ j∈ (s p), IsSC j := by 
-       rw [Player.forall]
-       exact ⟨hl',hr'⟩
-  exact IsSC_OfSets hs hn hsc
-
-
-
--- from here on, we must keep a list of what lemmas need `IsSC` so that we do not require this when it is not necessary.
-
 mutual
 lemma lemma_4_12_leq' {A : Type} [Preorder A] [OrderTop A] (g : Primordial A) (hg : IsSC g): g≤ ⊤% := by
   rw [leq.simp]
@@ -493,8 +459,7 @@ lemma lemma_4_12_tri' {A : Type} [Preorder A] [OrderTop A] (g : Primordial A) (h
   case false => 
        rw [tri]
        left
-       _
-  sorry
+       sorry
 termination_by (g,0)
 decreasing_by Primordial_wf
 
