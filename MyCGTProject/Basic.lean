@@ -624,7 +624,7 @@ theorem Dual_ofSets {A : Type} {L R : Set (Primordial A)} [Small L] [Small R] : 
   ext p _
   cases p <;> simp
 
-theorem Dual_option {A : Type} {g g' : Primordial A} {p : Player} (hg' : g' ∈ moves g p) : Dual g' ∈ moves (Dual g) (-p) := by 
+lemma Dual_option_mp {A : Type} {g g' : Primordial A} {p : Player} (hg' : g' ∈ moves g p) : Dual g' ∈ moves (Dual g) (-p) := by 
   have hag :¬ IsAtom g = true := by 
        grind [= eq_def, = moves.eq_def, = IsAtom.eq_def]
   unfold Dual
@@ -644,6 +644,42 @@ theorem Dual_option {A : Type} {g g' : Primordial A} {p : Player} (hg' : g' ∈ 
   · rw [if_pos (by simp), moves_ofSets, Set.mem_range, Subtype.exists, neg_neg]
     use g', hg'
     simp [h]
+
+lemma Dual_option_mpr {A : Type} {g g' : Primordial A} {p : Player} (hg : Dual g' ∈ moves (Dual g) (-p)) : g' ∈ moves g p := by
+  rw [←@Dual_selfInverse A g]
+  rw [←@Dual_selfInverse A g']
+  have := Dual_option_mp hg
+  simpa
+
+theorem Dual_option {A : Type} {g g' : Primordial A} {p : Player} : g' ∈ moves g p ↔ Dual g' ∈ moves (Dual g) (-p)  := ⟨Dual_option_mp,Dual_option_mpr⟩
+
+noncomputable def Dual_movesEq {A : Type} (g : Primordial A) (p : Player) : (moves g p) ≃ (moves (Dual g) (-p)) :=
+  have : ∀ x ∈ (g.Dual.moves (-p)), x.Dual ∈ moves g p := by
+       intro x hx
+       have := Dual_option.mp hx
+       simpa [Dual_selfInverse]
+  ⟨λ x => ⟨Dual x,Dual_option.mp x.2⟩,λ x => ⟨Dual x,this x.1 x.2⟩,
+  by
+    unfold Function.LeftInverse
+    intro x
+    simp [Dual_selfInverse]
+,
+  by
+    unfold Function.RightInverse
+    intro x
+    simp [Dual_selfInverse]
+  ⟩
+
+theorem Dual_Nonempty {A : Type} {g : Primordial A} (p : Player) : (moves g p).Nonempty ↔ (moves (Dual g) (-p)).Nonempty := by
+  repeat rw [Set.Nonempty]
+  constructor
+  ·intro ⟨x,hx⟩ 
+   use (Dual x), Dual_option.mp hx
+  ·intro ⟨x,hx⟩ 
+   use (Dual x)
+   rw [←@Dual_selfInverse _ x] at hx
+   have := Dual_option.mpr hx
+   simpa
 
 /-- given a function on the underlying sets A, B, this is the function from Primordial A to Primordial B that naturally arises. uses recursion -/
 noncomputable def MAP (f : A → B) (x : Primordial.{u} A) : Primordial B := 
@@ -789,9 +825,8 @@ noncomputable def sum {A B : Type} (x : Primordial A) (y : Primordial B) : Primo
 if hxy:IsAtom x ∧IsAtom y then mk_atom (Sum.getLeft (moves_or x) hxy.left,Sum.getLeft (moves_or y) hxy.right)
 else !{ (  fun p:Player => (Set.range fun (z : moves x p) ↦ sum z.val y)∪(Set.range fun (z : moves y p) ↦ sum x z.val)  )}
 termination_by (x,y)
-decreasing_by 
-  Primordial_wf
-
+decreasing_by Primordial_wf
+  
 -- 
 noncomputable instance {A B : Type} : HAdd (Primordial A) (Primordial B) (Primordial (A×B)) where
   hAdd a b := sum a b
@@ -1381,71 +1416,72 @@ abbrev oc (x : Primordial Bool) : Prop × Prop := (FPS x left, SPS x left)
 
 abbrev eval {A B : Type} {p : (A → B) → Prop} (xf : A × {f:A → B| p f}) : B := xf.2.1 xf.1 
 
-
 end Primordial
 
--- noncomputable def test1 {A} (x : Primordial A) : Nat :=
--- match IsAtom x with 
--- | true => 0
--- | false=> 1
--- noncomputable def test2 {A} (x : Primordial A) : Prop :=
--- match IsAtom x with 
--- | true => True
--- | false=> ∀ y :Primordial A, option y x -> test2 y
--- termination_by x
--- decreasing_by Primordial_wf
-
--- noncomputable def test3 {A} (x : Primordial A) : Primordial A :=
--- if  h : IsAtom x then
---    mk_atom (Sum.getLeft (moves_or x) h)
--- else
---  have h' : IsComp x := by
---    simp at h
---    simp [h]
---  mk_comp (Sum.getRight (moves_or x) h')
-
--- example {A} (x : Primordial A) : x = test3 x := by
--- match h: IsAtom x with
--- |true =>
---       dsimp [test3]
---       simp [h]
---       dsimp [mk_atom]
---       dsimp [moves_or]
---       simp [QPF.Fix.mk_dest]
--- |false =>
---       dsimp [test3]
---       simp [h]
---       dsimp [mk_comp]
---       dsimp [moves_or]
---       simp [QPF.Fix.mk_dest]
-
-
--- example {A B} (x : Atom A) (y : Atom B) : test1 x.1 = test1 y.1 := by 
--- dsimp [test1] 
--- have hx :IsAtom x.1 := x.2
--- have hy :IsAtom y.1 := y.2
--- simp [hx,hy]
-
--- theorem test10 {A} (x : Primordial A) : test2 x  := by
--- match hx:IsAtom x with
--- | true =>
---   unfold test2
---   simp only [hx]
--- | false =>
---   unfold test2
---   simp only [hx]
---   intro y hy
---   exact test10 y
--- termination_by x
--- decreasing_by Primordial_wf
 
 
 
 
--- def D := Unit
--- def z:Unit := Unit.unit
+open Primordial
+/-- We define the property of being a set coloring game: That is, a (composite) game where the left and right sets are non-empty. -/
+def IsSC {A : Type} (x : Primordial A) : Prop := IsAtom x ∨ (∀ p, ((moves x p).Nonempty ∧ ∀ x'∈ moves x p, IsSC x'))
+termination_by x
+decreasing_by Primordial_wf
 
+lemma Atom_IsSC {A : Type} {x : Primordial A} (hx : IsAtom x) : IsSC x := by
+  rw [IsSC]
+  exact Or.inl hx
 
+lemma IsSC_ofSets {A : Type} {s : Player → Set (Primordial A)} (hs : ∀ p, Small (s p)) (hn : ∀ p, (s p).Nonempty) (hsc : ∀ p, ∀ j ∈ (s p), IsSC j) : IsSC !{s} := by 
+  rw [IsSC]
+  right
+  intro p
+  specialize hs p
+  specialize hn p
+  refine ⟨by simp [hn],?_⟩
+  rw [moves_ofSets]
+  intro x hx
+  specialize hsc p x hx
+  assumption
 
+lemma IsSC_ofSets' {A : Type} {L R : Set (Primordial A)} [il : Small.{u} L] [ir : Small R] (hl : L.Nonempty) (hr : R.Nonempty) (hl' : ∀ l ∈ L, IsSC l) (hr' : ∀ r ∈ R, IsSC r) : IsSC !{L|R} := by
+  let s : Player → Set (Primordial A) := Player.cases L R
+  have hs  : ∀ p, Small.{u} (s p) := by simp [s,il,ir]
+  have hn  : ∀ p, (s p).Nonempty := by simp [s,hl,hr]
+  have hsc : ∀ p, ∀ j∈ (s p), IsSC j := by 
+       rw [Player.forall]
+       exact ⟨hl',hr'⟩
+  exact IsSC_ofSets hs hn hsc
 
+lemma temp {p q r : Prop} : (p∨ (q↔r)) → (p∨q ↔ p∨ r):= by
+  aesop
+lemma temp2 {p q r : Prop} : (p∨ (q→ r)) → (p∨q → p∨ r):= by
+  aesop
+lemma Dual_IsSC' {A : Type} {g : Primordial A} : IsSC (Dual g) → IsSC g:= by
+  repeat rw [IsSC]
+  rw [Dual_IsAtom]
+  apply temp2
+  right
+  conv =>
+       left
+       arg 2
+       rw [Dual_Nonempty]
+       right
+  intro h' p
+  specialize h' (-p)
+  rw [neg_neg p, @ Dual_selfInverse _ g] at h'
+  refine ⟨And.left <| h',?_⟩
+  intro x hx
+  apply Dual_IsSC'
+  apply And.right at h'
+  specialize h' x.Dual <| (@Dual_option _ g x (p)).mp hx
+  assumption
+termination_by g
+decreasing_by 
+  Primordial_wf
 
+theorem Dual_IsSC {A : Type} {g : Primordial A} : IsSC (Dual g) ↔ IsSC g:= by
+  constructor
+  · exact Dual_IsSC'
+  · nth_rewrite 1 [← @Dual_selfInverse _ g]
+    exact Dual_IsSC'

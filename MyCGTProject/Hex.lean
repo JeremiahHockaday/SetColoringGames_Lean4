@@ -127,7 +127,7 @@ lemma leq_Dual' {A : Type} [Preorder A] (g k : Primordial A) : g ≤ k → (kᵒ
   have hl : ∀ l ∈ (kᵒᵖ)ᴸ, l◃ (gᵒᵖ) := by 
        intro l hl
        have :(lᵒᵖ) ∈ kᴿ  := by 
-            have := Dual_option hl
+            have := Dual_option.mp hl
             rw [Dual_selfInverse] at this
             assumption
        rw [leq.simp] at h
@@ -140,7 +140,7 @@ lemma leq_Dual' {A : Type} [Preorder A] (g k : Primordial A) : g ≤ k → (kᵒ
   have hr : ∀ r ∈ (gᵒᵖ)ᴿ, (kᵒᵖ)◃ r := by 
        intro r hr
        have :(rᵒᵖ) ∈ gᴸ  := by 
-            have := Dual_option hr
+            have := Dual_option.mp hr
             rw [Dual_selfInverse] at this
             assumption
        rw [leq.simp] at h
@@ -169,7 +169,7 @@ lemma tri_Dual' {A : Type} [ t : Preorder A] (g k : Primordial A) : g ◃ k → 
     cases hc
     case inl hr =>
       obtain ⟨r,hr,h'⟩:= hr
-      have : rᵒᵖ ∈ (gᵒᵖ)ᴸ := Dual_option hr
+      have : rᵒᵖ ∈ (gᵒᵖ)ᴸ := Dual_option.mp hr
       rw [leq.format] at h'
       apply leq_Dual' at h'
       rw [tri]
@@ -179,7 +179,7 @@ lemma tri_Dual' {A : Type} [ t : Preorder A] (g k : Primordial A) : g ◃ k → 
       exact h'
     case inr hl =>
       obtain ⟨l,hl,h'⟩:= hl
-      have : lᵒᵖ ∈ (kᵒᵖ)ᴿ := Dual_option hl
+      have : lᵒᵖ ∈ (kᵒᵖ)ᴿ := Dual_option.mp hl
       rw [leq.format] at h'
       apply leq_Dual' at h'
       rw [tri]
@@ -447,38 +447,29 @@ notation:max x:max "%" => mk_atom x
 --#check λ x:ℕ => x%
 
 
-mutual
-lemma lemma_4_12_leq' {A : Type} [Preorder A] [OrderTop A] (g : Primordial A) (hg : IsSC g): g≤ ⊤% := by
-  rw [leq.simp]
-  sorry
-termination_by (g,1)
-decreasing_by Primordial_wf
-lemma lemma_4_12_tri' {A : Type} [Preorder A] [OrderTop A] (g : Primordial A) (hg : IsSC g): g ◃ ⊤% := by
-  cases hg : IsAtom g
-  case true => rw [tri]; aesop
-  case false => 
-       rw [tri]
-       left
-       sorry
-termination_by (g,0)
-decreasing_by Primordial_wf
+-- mutual
+-- lemma lemma_4_12_leq' {A : Type} [Preorder A] [OrderTop A] (g : Primordial A) (hg : IsSC g): g≤ ⊤% := by
+--   rw [leq.simp]
+--   sorry
+-- termination_by (g,1)
+-- decreasing_by Primordial_wf
+-- lemma lemma_4_12_tri' {A : Type} [Preorder A] [OrderTop A] (g : Primordial A) (hg : IsSC g): g ◃ ⊤% := by
+--   cases hg : IsAtom g
+--   case true => rw [tri]; aesop
+--   case false => 
+--        rw [tri]
+--        left
+--        sorry
+-- termination_by (g,0)
+-- decreasing_by Primordial_wf
 
-end
+-- end
 
 
 lemma Atom_toComp {A : Type} [Preorder A] {x : A} : x% ≃ !{{x%}|{x%}} := by
   rw [intrRel.eq]
   repeat rw [leq.simp]
   simp [tri,forall_Atom (mk_atom_IsAtom), mk_atom_IsAtom,exists_Atom (mk_atom_IsAtom)]
-
-
-
-
-
-
-
-
-
 
 --contextual order on games
 def contxRel {A : Type} [Preorder A] (g h : Primordial.{u} A) : Prop := ∀ x : Primordial.{u} ({f : A → Bool | Monotone f}), oc (MAP eval (g + x)) ≤ oc (MAP eval (h + x))
