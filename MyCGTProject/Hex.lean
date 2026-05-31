@@ -447,23 +447,46 @@ notation:max x:max "%" => mk_atom x
 --#check λ x:ℕ => x%
 
 
--- mutual
--- lemma lemma_4_12_leq' {A : Type} [Preorder A] [OrderTop A] (g : Primordial A) (hg : IsSC g): g≤ ⊤% := by
---   rw [leq.simp]
---   sorry
--- termination_by (g,1)
--- decreasing_by Primordial_wf
--- lemma lemma_4_12_tri' {A : Type} [Preorder A] [OrderTop A] (g : Primordial A) (hg : IsSC g): g ◃ ⊤% := by
---   cases hg : IsAtom g
---   case true => rw [tri]; aesop
---   case false => 
---        rw [tri]
---        left
---        sorry
--- termination_by (g,0)
--- decreasing_by Primordial_wf
+mutual
 
--- end
+lemma lemma_4_12_tri' {A : Type} [Preorder A] [OrderTop A] (g : Primordial A) (hsc : IsSC g) : g ◃ ⊤% := by
+  cases ha : IsAtom g
+  case true => rw [tri]; aesop
+  case false => 
+       rw [tri]
+       left; left
+       rw [IsSC] at hsc
+       rw [ha, Bool.false_eq_true, false_or] at hsc
+       specialize hsc right
+       obtain ⟨⟨x,hx⟩,hsc⟩ := hsc
+       use x, hx
+       exact lemma_4_12_leq' x <| hsc x hx
+termination_by (g,0)
+decreasing_by Primordial_wf
+
+lemma lemma_4_12_leq' {A : Type} [Preorder A] [OrderTop A] (g : Primordial A) (hsc : IsSC g) : g≤ ⊤% := by
+  cases ha : IsAtom g
+  case true => 
+    rw [leq.simp];
+    rw [forall_Atom ha, forall_Atom<| mk_atom_IsAtom, ha]
+    rw [tri]
+    aesop
+  case false => 
+    rw [leq.simp]
+    rw [forall_Atom<| mk_atom_IsAtom, and_true,mk_atom_IsAtom]
+    have hsc' := hsc
+    rw [IsSC] at hsc  
+    rw [ha, Bool.false_eq_true, false_or] at hsc
+    specialize hsc left
+    obtain ⟨⟨x,hx⟩,hsc⟩ := hsc    
+    refine ⟨λ l hl => lemma_4_12_tri' l <| hsc l hl,?_⟩
+    simp only
+    rw [or_true,forall_const]
+    exact lemma_4_12_tri' g hsc'
+termination_by (g,1)
+decreasing_by Primordial_wf
+
+end
 
 
 lemma Atom_toComp {A : Type} [Preorder A] {x : A} : x% ≃ !{{x%}|{x%}} := by
