@@ -1423,40 +1423,119 @@ end Primordial
 
 
 open Primordial
-/-- We define the property of being a set coloring game: That is, a (composite) game where the left and right sets are non-empty. -/
-def IsSC {A : Type} (x : Primordial A) : Prop := IsAtom x ∨ (∀ p, ((moves x p).Nonempty ∧ ∀ x'∈ moves x p, IsSC x'))
-termination_by x
-decreasing_by Primordial_wf
-
-lemma Atom_IsSC {A : Type} {x : Primordial A} (hx : IsAtom x) : IsSC x := by
-  rw [IsSC]
-  exact Or.inl hx
-
-lemma IsSC_ofSets {A : Type} {s : Player → Set (Primordial A)} (hs : ∀ p, Small (s p)) (hn : ∀ p, (s p).Nonempty) (hsc : ∀ p, ∀ j ∈ (s p), IsSC j) : IsSC !{s} := by 
-  rw [IsSC]
-  right
-  intro p
-  specialize hs p
-  specialize hn p
-  refine ⟨by simp [hn],?_⟩
-  rw [moves_ofSets]
-  intro x hx
-  specialize hsc p x hx
-  assumption
-
-lemma IsSC_ofSets' {A : Type} {L R : Set (Primordial A)} [il : Small.{u} L] [ir : Small R] (hl : L.Nonempty) (hr : R.Nonempty) (hl' : ∀ l ∈ L, IsSC l) (hr' : ∀ r ∈ R, IsSC r) : IsSC !{L|R} := by
-  let s : Player → Set (Primordial A) := Player.cases L R
-  have hs  : ∀ p, Small.{u} (s p) := by simp [s,il,ir]
-  have hn  : ∀ p, (s p).Nonempty := by simp [s,hl,hr]
-  have hsc : ∀ p, ∀ j∈ (s p), IsSC j := by 
-       rw [Player.forall]
-       exact ⟨hl',hr'⟩
-  exact IsSC_ofSets hs hn hsc
 
 lemma temp {p q r : Prop} : (p∨ (q↔r)) → (p∨q ↔ p∨ r):= by
   aesop
 lemma temp2 {p q r : Prop} : (p∨ (q→ r)) → (p∨q → p∨ r):= by
   aesop
+
+/-- Some proofs only require that Right (resp. Left) has a move available to them at all times. Thus, here we provide a weaker form of `IsSC` that accommodates this need. -/
+def IsSCP {A : Type} (p : Player) (x : Primordial A) : Prop := IsAtom x ∨ ((moves x p).Nonempty ∧ ∀ p', ∀ x'∈ moves x p', IsSCP p x')
+termination_by x
+decreasing_by Primordial_wf
+
+lemma Atom_IsSCP {A : Type} {x : Primordial A} (hx : IsAtom x) :∀ p, IsSCP p x := by
+  intro _
+  rw [IsSCP]
+  exact Or.inl hx
+
+lemma IsSCP_ofSets {A : Type} {s : Player → Set (Primordial A)} (p : Player) (hs : ∀ p', Small (s p')) (hn : (s p).Nonempty) (hsc : ∀ p', ∀ j ∈ (s p'), IsSCP p j) : IsSCP p !{s} := by 
+  rw [IsSCP]
+  right
+  specialize hs p
+  refine ⟨by simp [hn],?_⟩
+  intro p'
+  rw [moves_ofSets]
+  intro x hx
+  specialize hsc p' x hx
+  assumption
+
+lemma IsSCP_ofSets' {A : Type} {L R : Set (Primordial A)} [il : Small.{u} L] [ir : Small R] (p : Player) (hn : (Player.cases L R p).Nonempty) (hl' : ∀ l ∈ L, IsSCP p l) (hr' : ∀ r ∈ R, IsSCP p r) : IsSCP p !{L|R} := by
+  let s : Player → Set (Primordial A) := Player.cases L R
+  have hs  : ∀ p', Small.{u} (s p') := by simp [s,il,ir]
+  have hn  : (s p).Nonempty := by simp [s,hn]
+  have hsc : ∀ p', ∀ j∈ (s p'), IsSCP p j := by 
+       rw [Player.forall]
+       exact ⟨hl',hr'⟩
+  exact IsSCP_ofSets p  hs hn hsc
+
+lemma Dual_IsSCP' {A : Type} {g : Primordial A} (p : Player) : IsSCP (-p) (Dual g) → IsSCP p g:= by
+  repeat rw [IsSCP]
+  rw [Dual_IsAtom]
+  apply temp2
+  right
+  conv =>
+       left
+       rw [Dual_Nonempty, Dual_selfInverse, neg_neg]
+       right
+  intro h'
+  obtain ⟨hn,hscp⟩ := h'
+  refine ⟨hn,?_⟩
+  
+  intro p' x hx
+  rw [Dual_option] at hx
+  apply Dual_IsSCP'
+  specialize hscp (-p') x.Dual  hx--<| (@Dual_option _ g x (p')).mp hx
+  assumption
+termination_by g
+decreasing_by 
+  Primordial_wf
+
+theorem Dual_IsSCP {A : Type} {g : Primordial A} (p : Player) : IsSCP (-p) (Dual g) ↔ IsSCP p g:= by
+  constructor
+  · exact Dual_IsSCP' p
+  · nth_rewrite 1 [← @Dual_selfInverse _ g, ← neg_neg p]
+    exact Dual_IsSCP' (-p)
+
+
+-------------------------------------------
+/-- We define the property of being a set coloring game: That is, a (composite) game where the left and right sets are non-empty. -/
+def IsSC {A : Type} (x : Primordial A) : Prop := IsAtom x ∨ (∀ p, ((moves x p).Nonempty ∧ ∀ x'∈ moves x p, IsSC x'))
+termination_by x
+decreasing_by Primordial_wf
+
+def IsSC_IsSCP {A : Type} (x : Primordial A) : IsSC x ↔ ∀ p, IsSCP p x := by
+  rw [IsSC]
+  conv=>
+    right
+    right
+    rw [IsSCP]
+  conv =>
+    left
+    right
+    arg 2
+    right
+    arg 2
+    arg 2
+    rw [IsSC_IsSCP]
+  simp_rw [Player.forall, forall_and]
+  tauto
+termination_by x
+decreasing_by Primordial_wf
+
+lemma Atom_IsSC {A : Type} {x : Primordial A} (hx : IsAtom x) : IsSC x := by
+  simp [IsSC_IsSCP,Atom_IsSCP hx]
+
+lemma IsSC_ofSets {A : Type} {s : Player → Set (Primordial A)} (hs : ∀ p, Small (s p)) (hn : ∀ p, (s p).Nonempty) (hsc : ∀ p, ∀ j ∈ (s p), IsSC j) : IsSC !{s} := by 
+  simp_rw [IsSC_IsSCP] at ⊢ hsc
+  intro p
+  have hsc' : ∀ (p' : Player), ∀ j ∈ s p', IsSCP p j := by intro p' j hj; exact hsc p' j hj p
+  exact IsSCP_ofSets p hs (hn p) hsc'
+
+lemma IsSC_ofSets' {A : Type} {L R : Set (Primordial A)} [il : Small.{u} L] [ir : Small R] (hl : L.Nonempty) (hr : R.Nonempty) (hl' : ∀ l ∈ L, IsSC l) (hr' : ∀ r ∈ R, IsSC r) : IsSC !{L|R} := by
+  rw [IsSC_IsSCP]
+  intro p
+  have hl'': ∀ l ∈ L, IsSCP p l := by
+       intro l hl
+       simp_rw [IsSC_IsSCP] at hl'
+       exact hl' l hl p
+  have hr'': ∀ r ∈ R, IsSCP p r := by
+       intro r hr
+       simp_rw [IsSC_IsSCP] at hr'
+       exact hr' r hr p
+  refine IsSCP_ofSets' p ?_ hl'' hr''
+  cases p <;> simp [hl,hr]
+
 lemma Dual_IsSC' {A : Type} {g : Primordial A} : IsSC (Dual g) → IsSC g:= by
   repeat rw [IsSC]
   rw [Dual_IsAtom]
