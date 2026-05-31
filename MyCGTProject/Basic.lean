@@ -1494,7 +1494,7 @@ def IsSC {A : Type} (x : Primordial A) : Prop := IsAtom x ∨ (∀ p, ((moves x 
 termination_by x
 decreasing_by Primordial_wf
 
-def IsSC_IsSCP {A : Type} (x : Primordial A) : IsSC x ↔ ∀ p, IsSCP p x := by
+lemma IsSC_IsSCP {A : Type} (x : Primordial A) : IsSC x ↔ ∀ p, IsSCP p x := by
   rw [IsSC]
   conv=>
     right
