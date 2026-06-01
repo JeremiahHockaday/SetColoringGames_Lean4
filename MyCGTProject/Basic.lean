@@ -878,34 +878,8 @@ lemma sum_option {A B : Type} {x : Primordial (A × B)} {a : Primordial A} {b : 
   dsimp only [option]
   simp only [Set.mem_iUnion]
   suffices (∃ i, x ∈ (a + b).moves i) ↔ ∃ i:Player, ((∃ a', (a' ∈ a.moves i) ∧ x = a' + b) ∨ ∃ b', (b' ∈ b.moves i) ∧ x = a + b') by {
-        simp only [this]
-        constructor
-        · intro ⟨p,h⟩
-          cases h
-          case inl h'=>
-              obtain ⟨a',ha⟩:= h'
-              left
-              use a'
-              exact ⟨by use p;exact ha.1 ,ha.2⟩
-          case inr h'=>
-              obtain ⟨a',ha⟩:= h'
-              right
-              use a'
-              exact ⟨by use p;exact ha.1 ,ha.2⟩
-        ·intro h
-         cases h
-         case inl h' =>
-           obtain ⟨a',ha⟩ := h'
-           have ⟨⟨p,_⟩,_⟩:= ha
-           use p
-           left
-           use a'
-         case inr h' =>
-           obtain ⟨a',ha⟩ := h'
-           have ⟨⟨p,_⟩,_⟩:= ha
-           use p
-           right
-           use a'}
+        rw [this]
+        grind only}
 --
   constructor
   · intro ⟨i,h⟩
@@ -1066,6 +1040,14 @@ MAP (fun ((x1,x2),x3) => (x1,(x2,x3))) (a + b + c) = a + (b + c) := by
 termination_by (a,b,c)
 decreasing_by Primordial_wf
 
+
+
+
+
+
+
+-- Now we get into defining strategies for a player.
+--------------------------------------------------------------
 def pGoal (p : Player) : Bool := 
 match p with
 | left => ⊤
