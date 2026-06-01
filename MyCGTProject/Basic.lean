@@ -1272,30 +1272,47 @@ lemma IsSC_ofSets' {A : Type} {L R : Set (Primordial A)} [il : Small.{u} L] [ir 
   cases p <;> simp [hl,hr]
 
 lemma Dual_IsSC' {A : Type} {g : Primordial A} : IsSC (Dual g) → IsSC g:= by
-  repeat rw [IsSC]
-  rw [Dual_IsAtom]
-  apply temp2
-  right
-  conv =>
-       left
-       arg 2
-       rw [Dual_Nonempty]
-       right
-  intro h' p
-  specialize h' (-p)
-  rw [neg_neg p, @ Dual_selfInverse _ g] at h'
-  refine ⟨And.left <| h',?_⟩
-  intro x hx
-  apply Dual_IsSC'
-  apply And.right at h'
-  specialize h' x.Dual <| (@Dual_option _ g x (p)).mp hx
-  assumption
-termination_by g
-decreasing_by 
-  Primordial_wf
+  repeat rw [IsSC_IsSCP]
+  intro h p
+  specialize h (-p)
+  exact Dual_IsSCP' p h
 
 theorem Dual_IsSC {A : Type} {g : Primordial A} : IsSC (Dual g) ↔ IsSC g:= by
   constructor
   · exact Dual_IsSC'
   · nth_rewrite 1 [← @Dual_selfInverse _ g]
     exact Dual_IsSC'
+
+def IsNormal {A : Type} (x : Primordial A) :Prop := IsComp x ∧ (∀ p, ∀ x'∈ moves x p, IsNormal x')
+termination_by x
+decreasing_by Primordial_wf
+
+lemma IsNormal_ofSets {A : Type} {s : Player → Set (Primordial A)} (hs : ∀ p, Small (s p)) (hsc : ∀ p, ∀ j ∈ (s p), IsNormal j) : IsNormal !{s} := by
+  rw [IsNormal]
+  simp_all [ofSets_IsComp, moves_ofSets]
+
+lemma IsNormal_ofSets' {A : Type} {L R : Set (Primordial A)} [il : Small.{u} L] [ir : Small R] (hl' : ∀ l ∈ L, IsNormal l) (hr' : ∀ r ∈ R, IsNormal r) : IsNormal !{L|R} := by
+  rw [IsNormal]
+  simp_all [ofSets_IsComp, moves_ofSets]
+  
+
+lemma Dual_IsNormal' {A : Type} {g : Primordial A} : IsNormal (Dual g) → IsNormal g:= by
+  repeat rw [IsNormal]
+  intro ⟨h1,h2⟩
+  rw [Comp_nAtom_iff] at *
+  rw [Dual_IsAtom] at h1
+  refine ⟨by simp [h1],?_⟩
+  intro p x hx
+  specialize h2 (-p) x.Dual 
+  rw [Dual_option,neg_neg] at h2 
+  repeat rw [Dual_selfInverse] at h2
+  exact Dual_IsNormal' <| h2 hx
+termination_by g
+decreasing_by Primordial_wf
+
+theorem Dual_IsNormal {A : Type} {g : Primordial A} : IsNormal (Dual g) ↔ IsNormal g:= by
+  constructor
+  · exact Dual_IsNormal'
+  · nth_rewrite 1 [← @Dual_selfInverse _ g]
+    exact Dual_IsNormal'
+
