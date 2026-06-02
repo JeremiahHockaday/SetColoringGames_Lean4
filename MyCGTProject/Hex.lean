@@ -13,7 +13,7 @@ set_option linter.unnecessarySeqFocus false
 
 universe u
 
-open Primordial
+open Primordial OrderDual
 
 /-- this defines the `gᵒᵖ` notation, which makes talking about the opposite of a game much easier. I suppose I could have made this an instance of the negation notation. This allows you to not think about what the opposite of a poset is in mathlib. -/
 notation:max g:max "ᵒᵖ" => @Dual (OrderDual _) g
@@ -22,7 +22,8 @@ open Lean PrettyPrinter Delaborator SubExpr in
 def unexpDual : Unexpander
 |`($_ $arg) => `(($arg)ᵒᵖ)
 |`($_) => pure <| mkIdent `Dual
--- TO DO: figure out what a delaborator is a nd how to use it...
+--TO DO: figure out what a delaborator is a nd how to use it...
+
 
 mutual
 /-- The definition of `leq` via mutual induction -/
@@ -117,7 +118,6 @@ lemma atomic_leq {A : Type} [Preorder A] (g k : Primordial.{u} A) (hg : IsAtom g
         case inr ha => 
                obtain ⟨_,_,h⟩ := ha
                assumption
-
 
 -- duality lemmas for leq and tri.
 mutual
@@ -489,10 +489,28 @@ decreasing_by Primordial_wf
 end
 
 
-lemma Atom_toComp {A : Type} [Preorder A] {x : A} : x% ≃ !{{x%}|{x%}} := by
+lemma top_op {A : Type} [Preorder A] [OrderTop A] [OrderBot A] : @intrRel.eq A _ ((⊤%)ᵒᵖ) (⊥%) := sorry
+
+lemma lemma_4_12_tri {A : Type} [Preorder A] [OrderTop A] [OrderBot A] (g : Primordial A) (hsc : IsSC g) : ⊥% ◃  g ∧ g ◃ ⊤% := sorry
+
+lemma lemma_4_12_leq {A : Type} [Preorder A] [OrderTop A] [OrderBot A] (g : Primordial A) (hsc : IsSC g) : ⊥% ≤  g ∧ g ≤ ⊤% := sorry
+
+-- this is lemma 4.11
+@[simp]
+lemma Atom_CompEq {A : Type} [Preorder A] {x : A} : !{{x%}|{x%}} ≃ x% := by
   rw [intrRel.eq]
   repeat rw [leq.simp]
   simp [tri,forall_Atom (mk_atom_IsAtom), mk_atom_IsAtom,exists_Atom (mk_atom_IsAtom)]
+
+
+
+
+
+
+
+
+
+
 
 --contextual order on games
 def contxRel {A : Type} [Preorder A] (g h : Primordial.{u} A) : Prop := ∀ x : Primordial.{u} ({f : A → Bool | Monotone f}), oc (MAP eval (g + x)) ≤ oc (MAP eval (h + x))
