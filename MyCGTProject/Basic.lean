@@ -543,12 +543,17 @@ macro "Primordial_wf" config:Lean.Parser.Tactic.optConfig : tactic =>
     Subposition.of_mem_moves, Subposition.trans, Subtype.prop]} )
 
 
-
+open OrderDual
+@[simp]
+lemma toDual_toDual {A : Type} [LE A] (x : A) : toDual.toFun (toDual.toFun x) = x := by 
+  repeat rw [toDual, Equiv.refl]
+  simp 
 
 /-- returns the dual of a game. If a game is atomic, does nothing. -/
 noncomputable def Dual {A : Type} (x : Primordial A) : Primordial A :=
-if IsAtom x then 
-  x
+if  IsAtom x then 
+    x
+--  mk_atom (toDual.toFun (Sum.getLeft (moves_or x) h))
 else
   !{fun p=>Set.range (fun (z : x.moves (-p)) ↦ Dual z)}
 termination_by x
@@ -1039,11 +1044,6 @@ MAP (fun ((x1,x2),x3) => (x1,(x2,x3))) (a + b + c) = a + (b + c) := by
           exact hx  
 termination_by (a,b,c)
 decreasing_by Primordial_wf
-
-
-
-
-
 
 
 -- Now we get into defining strategies for a player.
