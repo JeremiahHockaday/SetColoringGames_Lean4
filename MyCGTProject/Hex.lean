@@ -22,8 +22,7 @@ open Lean PrettyPrinter Delaborator SubExpr in
 def unexpDual : Unexpander
 |`($_ $arg) => `(($arg)ᵒᵖ)
 |`($_) => pure <| mkIdent `Dual
---TO DO: figure out what a delaborator is a nd how to use it...
-
+--TO DO: figure out what a delaborator is and how to use it...
 
 mutual
 /-- The definition of `leq` via mutual induction -/
@@ -443,7 +442,6 @@ lemma giftHorse_right {A : Type} [Preorder A] {L R : Set (Primordial A)} [Small.
 /-- Current notation for an atom in a game. -/
 notation:max x:max "%" => mk_atom x
 
-
 --#check λ x:ℕ => x%
 
 
@@ -489,7 +487,8 @@ decreasing_by Primordial_wf
 end
 
 
-lemma top_op {A : Type} [Preorder A] [OrderTop A] [OrderBot A] : @intrRel.eq A _ ((⊤%)ᵒᵖ) (⊥%) := sorry
+lemma top_op {A : Type} [Preorder A] [OrderTop A] [OrderBot A] : @intrRel.eq A _ ((⊤%)ᵒᵖ) (⊥%) := by sorry
+
 
 lemma lemma_4_12_tri {A : Type} [Preorder A] [OrderTop A] [OrderBot A] (g : Primordial A) (hsc : IsSC g) : ⊥% ◃  g ∧ g ◃ ⊤% := sorry
 
@@ -517,7 +516,4 @@ def contxRel {A : Type} [Preorder A] (g h : Primordial.{u} A) : Prop := ∀ x : 
 
 -- The notation `≤ᶜ` for contextual relation. I do not know if this is optimal, but it will suffice.
 notation g:max "≤ᶜ" h:max => contxRel g h
-
-
-
 

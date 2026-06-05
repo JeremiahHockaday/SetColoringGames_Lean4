@@ -536,7 +536,7 @@ theorem recOn_eq {motive : Primordial A → Sort*} (x : Primordial A)
 
 
 /-- Discharges proof obligations of the form `⊢ Subposition ..` arising in termination proofs
-of definitions using well-founded recursion on `IGame`. -/
+of definitions using well-founded recursion on `Primordial A`. -/
 macro "Primordial_wf" config:Lean.Parser.Tactic.optConfig : tactic =>
   `(tactic| all_goals { solve_by_elim $config
     [Prod.Lex.left, Prod.Lex.right, PSigma.Lex.left, PSigma.Lex.right, left_memMoves, right_memMoves, Subposition.of_mem_movesP,
@@ -547,7 +547,7 @@ open OrderDual
 @[simp]
 lemma toDual_toDual {A : Type} [LE A] (x : A) : toDual.toFun (toDual.toFun x) = x := by 
   repeat rw [toDual, Equiv.refl]
-  simp 
+  simp
 
 /-- returns the dual of a game. If a game is atomic, does nothing. -/
 noncomputable def Dual {A : Type} (x : Primordial A) : Primordial A :=
@@ -1315,4 +1315,5 @@ theorem Dual_IsNormal {A : Type} {g : Primordial A} : IsNormal (Dual g) ↔ IsNo
   · exact Dual_IsNormal'
   · nth_rewrite 1 [← @Dual_selfInverse _ g]
     exact Dual_IsNormal'
+
 
